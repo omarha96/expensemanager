@@ -1,5 +1,6 @@
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
+import com.naveenapps.expensemanager.core.datastore.CurrencyApiDataStore
 import com.naveenapps.expensemanager.core.datastore.CurrencyDataStore
 import com.naveenapps.expensemanager.core.datastore.DateRangeDataStore
 import com.naveenapps.expensemanager.core.datastore.FeedbackDataStore
@@ -19,6 +20,7 @@ val DatastoreModule = module {
     single { ThemeDataStore(get()) }
     single { LocaleDataStore(get()) }
     single { CurrencyDataStore(get()) }
+    single { CurrencyApiDataStore(get()) }
     single { ReminderTimeDataStore(get()) }
     single { SettingsDataStore(get()) }
     single { DateRangeDataStore(get()) }

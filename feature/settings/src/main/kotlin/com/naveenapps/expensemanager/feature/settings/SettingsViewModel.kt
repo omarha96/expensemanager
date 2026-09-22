@@ -126,6 +126,10 @@ class SettingsViewModel(
         appComposeNavigator.navigate(ExpenseManagerScreens.AdvancedSettingsScreen)
     }
 
+    private fun openCurrencyApiProfileScreen() {
+        appComposeNavigator.navigate(ExpenseManagerScreens.CurrencyApiProfileScreen)
+    }
+
     private fun changeDefaultAccount(account: Account) {
         viewModelScope.launch {
             when (val response = settingsRepository.setDefaultAccount(account.id)) {
@@ -171,6 +175,7 @@ class SettingsViewModel(
             SettingAction.OpenAboutUs -> openAboutUs()
             SettingAction.OpenAdvancedSettings -> openAdvancedSettings()
             SettingAction.OpenCurrencyEdit -> openCurrencyCustomiseScreen()
+            SettingAction.OpenCurrencyApiProfile -> openCurrencyApiProfileScreen()
             SettingAction.OpenExport -> openExportScreen()
             SettingAction.OpenNotification -> openNotificationScreen()
             SettingAction.OpenRateUs -> {

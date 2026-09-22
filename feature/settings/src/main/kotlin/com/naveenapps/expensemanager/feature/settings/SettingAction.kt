@@ -19,6 +19,8 @@ sealed class SettingAction {
 
     data object OpenCurrencyEdit : SettingAction()
 
+    data object OpenCurrencyApiProfile : SettingAction()
+
     data object ShowThemeSelection : SettingAction()
 
     data object DismissThemeSelection : SettingAction()

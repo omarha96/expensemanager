@@ -184,6 +184,13 @@ private fun SettingsScreenContent(
                     title = stringResource(id = R.string.currency),
                     subtitle = "${state.currency.name} (${state.currency.symbol})",
                     icon = Icons.Outlined.Payments,
+                    showDivider = true,
+                )
+                SettingRow(
+                    onClick = { onAction.invoke(SettingAction.OpenCurrencyApiProfile) },
+                    title = "Currency API Profile",
+                    subtitle = "Configure the exchange-rate API used for conversions",
+                    icon = Icons.Outlined.Payments,
                 )
             }
         }

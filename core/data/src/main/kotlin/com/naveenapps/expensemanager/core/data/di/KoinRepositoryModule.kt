@@ -5,6 +5,7 @@ import com.naveenapps.expensemanager.core.data.repository.AnalyticsRepositoryImp
 import com.naveenapps.expensemanager.core.data.repository.BudgetRepositoryImpl
 import com.naveenapps.expensemanager.core.data.repository.CategoryRepositoryImpl
 import com.naveenapps.expensemanager.core.data.repository.CountryRepositoryImpl
+import com.naveenapps.expensemanager.core.data.repository.CurrencyApiRepositoryImpl
 import com.naveenapps.expensemanager.core.data.repository.CurrencyRepositoryImpl
 import com.naveenapps.expensemanager.core.data.repository.DateRangeFilterRepositoryImpl
 import com.naveenapps.expensemanager.core.data.repository.DevicePropertyRepositoryImpl
@@ -27,6 +28,7 @@ import com.naveenapps.expensemanager.core.repository.AnalyticsRepository
 import com.naveenapps.expensemanager.core.repository.BudgetRepository
 import com.naveenapps.expensemanager.core.repository.CategoryRepository
 import com.naveenapps.expensemanager.core.repository.CountryRepository
+import com.naveenapps.expensemanager.core.repository.CurrencyApiRepository
 import com.naveenapps.expensemanager.core.repository.CurrencyRepository
 import com.naveenapps.expensemanager.core.repository.DateRangeFilterRepository
 import com.naveenapps.expensemanager.core.repository.DevicePropertyRepository
@@ -83,6 +85,13 @@ val RepositoryModule = module {
             dispatchers = get(),
             dataStore = get(),
             numberFormatRepository = get(),
+        )
+    }
+    single<CurrencyApiRepository> {
+        CurrencyApiRepositoryImpl(
+            dataStore = get(),
+            exchangeRateApi = get(),
+            dispatchers = get(),
         )
     }
     single<DevicePropertyRepository> { DevicePropertyRepositoryImpl(androidContext()) }

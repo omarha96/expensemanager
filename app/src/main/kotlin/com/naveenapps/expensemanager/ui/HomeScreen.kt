@@ -49,6 +49,7 @@ import com.naveenapps.expensemanager.feature.onboarding.into.IntroScreen
 import com.naveenapps.expensemanager.feature.reminder.ReminderScreen
 import com.naveenapps.expensemanager.feature.settings.SettingsScreen
 import com.naveenapps.expensemanager.feature.settings.advanced.AdvancedSettingsScreen
+import com.naveenapps.expensemanager.feature.settings.currencyapi.CurrencyApiProfileScreen
 import com.naveenapps.expensemanager.feature.transaction.create.TransactionCreateScreen
 import com.naveenapps.expensemanager.feature.transaction.list.TransactionListScreen
 import org.koin.compose.viewmodel.koinViewModel
@@ -137,6 +138,9 @@ fun NavGraphBuilder.expenseManagerNavigation(
     }
     composable<ExpenseManagerScreens.AdvancedSettingsScreen> {
         AdvancedSettingsScreen()
+    }
+    composable<ExpenseManagerScreens.CurrencyApiProfileScreen> {
+        CurrencyApiProfileScreen()
     }
     composable<ExpenseManagerScreens.AccountReOrderScreen> {
         AccountReOrderScreen()

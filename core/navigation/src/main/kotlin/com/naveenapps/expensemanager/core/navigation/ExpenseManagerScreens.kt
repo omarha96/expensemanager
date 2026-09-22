@@ -49,6 +49,9 @@ sealed class ExpenseManagerScreens {
     data object AdvancedSettingsScreen : ExpenseManagerScreens()
 
     @Serializable
+    data object CurrencyApiProfileScreen : ExpenseManagerScreens()
+
+    @Serializable
     data object AccountReOrderScreen : ExpenseManagerScreens()
 
     @Serializable
