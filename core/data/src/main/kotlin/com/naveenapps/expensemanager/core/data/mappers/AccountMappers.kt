@@ -17,6 +17,7 @@ fun Account.toEntityModel(): AccountEntity {
         createdOn = createdOn,
         updatedOn = updatedOn,
         customImagePath = storedIcon.customImagePath,
+        currencyCode = currencyCode,
     )
 }
 
@@ -35,5 +36,6 @@ fun AccountEntity.toDomainModel(): Account {
         sequence = sequence,
         createdOn = createdOn,
         updatedOn = updatedOn,
+        currencyCode = currencyCode,
     )
 }

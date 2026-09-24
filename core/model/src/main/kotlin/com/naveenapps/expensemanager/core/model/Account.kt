@@ -14,6 +14,7 @@ data class Account(
     val sequence: Int = Int.MAX_VALUE,
     val amount: Double = 0.0,
     val creditLimit: Double = 0.0,
+    val currencyCode: String = "",
 )
 
 fun Account.getAvailableCreditLimit(): Double {

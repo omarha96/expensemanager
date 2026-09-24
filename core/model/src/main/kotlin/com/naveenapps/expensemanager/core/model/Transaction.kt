@@ -13,6 +13,7 @@ data class Transaction(
     val type: TransactionType,
     val createdOn: Date,
     val updatedOn: Date,
+    val currencyCode: String = "",
     var category: Category = Category(
         "",
         "",

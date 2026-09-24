@@ -125,3 +125,34 @@ internal val MIGRATION_7_8 = object : Migration(7, 8) {
         )
     }
 }
+
+/**
+ * Adds a `currency_code` column to both `account` and `transaction`, the first step of
+ * per-account multi-currency support: an account's currency is now stored on the account itself
+ * rather than assumed to be the single app-wide currency setting, and each transaction freezes
+ * the currency code of the account it was created against so historical transactions stay
+ * correct even if an account's currency is changed later.
+ *
+ * Every row that existed before this migration backfills to an empty string, not the app's
+ * current default-currency setting — that setting lives in DataStore, which a Room migration
+ * cannot read. Call sites treat a blank `currencyCode` as "inherit the app's default currency"
+ * for backward compatibility, so existing single-currency installs keep working unchanged.
+ *
+ * Also adds the `exchange_rates` table: a local cache of the last-fetched conversion rate for a
+ * base/target currency pair, keyed on both codes, so conversions still work offline between
+ * refreshes (see `core.repository.CurrencyApiRepository`).
+ */
+internal val MIGRATION_8_9 = object : Migration(8, 9) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `account` ADD COLUMN `currency_code` TEXT NOT NULL DEFAULT ''")
+        db.execSQL("ALTER TABLE `transaction` ADD COLUMN `currency_code` TEXT NOT NULL DEFAULT ''")
+        db.execSQL(
+            "CREATE TABLE IF NOT EXISTS `exchange_rates` (" +
+                "`base_code` TEXT NOT NULL, " +
+                "`target_code` TEXT NOT NULL, " +
+                "`rate` REAL NOT NULL, " +
+                "`fetched_at` INTEGER NOT NULL, " +
+                "PRIMARY KEY(`base_code`, `target_code`))"
+        )
+    }
+}

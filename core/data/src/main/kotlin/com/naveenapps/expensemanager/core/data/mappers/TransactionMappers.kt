@@ -16,6 +16,7 @@ fun Transaction.toEntityModel(): TransactionEntity {
         imagePath = imagePath,
         createdOn = createdOn,
         updatedOn = updatedOn,
+        currencyCode = currencyCode,
     )
 }
 
@@ -31,5 +32,6 @@ fun TransactionEntity.toDomainModel(): Transaction {
         imagePath = imagePath,
         createdOn = createdOn,
         updatedOn = updatedOn,
+        currencyCode = currencyCode,
     )
 }

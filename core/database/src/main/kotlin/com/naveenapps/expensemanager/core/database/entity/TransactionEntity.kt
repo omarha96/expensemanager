@@ -55,4 +55,6 @@ data class TransactionEntity(
     var updatedOn: Date,
     @ColumnInfo(name = "to_account_id")
     var toAccountId: String?,
+    @ColumnInfo(name = "currency_code", defaultValue = "''")
+    var currencyCode: String = "",
 )
