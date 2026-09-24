@@ -22,15 +22,16 @@ internal class ExchangeRateApiImpl(
         profile: CurrencyApiProfile,
         baseCurrencyCode: String,
     ): Map<String, Double> {
+        val adapter = ExchangeRateProviderAdapters.forPreset(profile.preset)
         val response = service.getLatestRates(
-            url = RatesRequestBuilder.buildUrl(profile, baseCurrencyCode),
-            headers = RatesRequestBuilder.buildHeaders(profile),
-            query = RatesRequestBuilder.buildQuery(profile),
+            url = adapter.buildUrl(profile, baseCurrencyCode),
+            headers = adapter.buildHeaders(profile),
+            query = adapter.buildQuery(profile),
         )
         val body = response.body()
         check(response.isSuccessful && body != null) {
             "Exchange rate request failed: ${response.code()} ${response.message()}"
         }
-        return RatesRequestBuilder.parseRates(profile.preset, body)
+        return adapter.parseRates(body)
     }
 }
