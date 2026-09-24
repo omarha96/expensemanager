@@ -4,6 +4,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCu
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.SaveCurrencyUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.FetchLatestExchangeRatesUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.GetCurrencyApiProfileUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.SaveCurrencyApiProfileUseCase
@@ -37,6 +38,7 @@ val SettingsUseCaseModule = module {
     single { GetCurrencyApiProfileUseCase(get()) }
     single { SaveCurrencyApiProfileUseCase(get()) }
     single { FetchLatestExchangeRatesUseCase(get()) }
+    single { ConvertAmountUseCase(get()) }
 
     //Export
     single {

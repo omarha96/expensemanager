@@ -1,18 +1,31 @@
 package com.naveenapps.expensemanager.core.domain.usecase.transaction
 
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.model.TransactionType
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 
 class GetExpenseAmountUseCase(
     private val getTransactionWithFilterUseCase: GetTransactionWithFilterUseCase,
+    private val getCurrencyUseCase: GetCurrencyUseCase,
+    private val convertAmountUseCase: ConvertAmountUseCase,
 ) {
 
     operator fun invoke(): Flow<Double?> {
-        return getTransactionWithFilterUseCase.invoke().map { transactions ->
-            return@map transactions?.filter { it.type == TransactionType.EXPENSE }?.sumOf {
-                it.amount.amount
-            } ?: 0.0
+        return combine(
+            getTransactionWithFilterUseCase.invoke(),
+            getCurrencyUseCase.invoke(),
+        ) { transactions, currency ->
+            var total = 0.0
+            transactions?.filter { it.type == TransactionType.EXPENSE }?.forEach {
+                total += convertAmountUseCase(
+                    amount = it.amount.amount,
+                    fromCode = it.currencyCode.ifBlank { currency.code },
+                    toCode = currency.code,
+                )
+            }
+            total
         }
     }
 }

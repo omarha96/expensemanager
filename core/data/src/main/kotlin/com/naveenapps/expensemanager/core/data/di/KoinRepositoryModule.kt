@@ -91,6 +91,7 @@ val RepositoryModule = module {
         CurrencyApiRepositoryImpl(
             dataStore = get(),
             exchangeRateApi = get(),
+            exchangeRateDao = get(),
             dispatchers = get(),
         )
     }

@@ -4,6 +4,7 @@ import com.naveenapps.expensemanager.core.common.utils.AppCoroutineDispatchers
 import com.naveenapps.expensemanager.core.domain.usecase.category.GetAllCategoryUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.model.CategoryTransaction
 import com.naveenapps.expensemanager.core.model.CategoryTransactionState
 import com.naveenapps.expensemanager.core.model.CategoryType
@@ -20,6 +21,7 @@ class GetTransactionGroupByCategoryUseCase(
     private val getCurrencyUseCase: GetCurrencyUseCase,
     private val getFormattedAmountUseCase: GetFormattedAmountUseCase,
     private val getTransactionWithFilterUseCase: GetTransactionWithFilterUseCase,
+    private val convertAmountUseCase: ConvertAmountUseCase,
     private val appCoroutineDispatchers: AppCoroutineDispatchers
 ) {
     fun invoke(categoryType: CategoryType): Flow<CategoryTransactionState> {
@@ -35,9 +37,20 @@ class GetTransactionGroupByCategoryUseCase(
                 ?.filterKeys { it.type == categoryType }
                 ?: emptyMap()
 
-            // Compute per-category sums once; derive total from those — no double iteration
+            // Compute per-category sums once; derive total from those — no double iteration.
+            // Each transaction is converted from its own currency (blank = the display
+            // currency, i.e. no-op) to the display currency before summing, so a mix of
+            // currencies never gets added together as if they were the same unit.
             val categoryAmounts = byCategory.mapValues { (_, txns) ->
-                txns.sumOf { it.amount.amount }
+                var total = 0.0
+                txns.forEach {
+                    total += convertAmountUseCase(
+                        amount = it.amount.amount,
+                        fromCode = it.currencyCode.ifBlank { currency.code },
+                        toCode = currency.code,
+                    )
+                }
+                total
             }
             val totalAmount = categoryAmounts.values.sum()
 

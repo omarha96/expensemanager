@@ -13,6 +13,7 @@ val DashboardViewModelModule = module {
             getAllAccountsUseCase = get(),
             getTransactionGroupByCategoryUseCase = get(),
             getBudgetsUseCase = get(),
+            convertAmountUseCase = get(),
             appCoroutineDispatchers = get(),
             appComposeNavigator = get(),
             getDateRangeUseCase = get(),

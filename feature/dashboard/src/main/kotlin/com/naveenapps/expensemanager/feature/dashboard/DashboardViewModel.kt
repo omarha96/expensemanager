@@ -10,6 +10,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.budget.GetBudgetsUseCas
 import com.naveenapps.expensemanager.core.domain.usecase.budget.budgetName
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.filter.daterange.GetDateRangeUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.GetTransactionGroupByCategoryUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.GetTransactionWithFilterUseCase
@@ -44,6 +45,7 @@ class DashboardViewModel(
     getAllAccountsUseCase: GetAllAccountsUseCase,
     getTransactionGroupByCategoryUseCase: GetTransactionGroupByCategoryUseCase,
     getBudgetsUseCase: GetBudgetsUseCase,
+    private val convertAmountUseCase: ConvertAmountUseCase,
     appCoroutineDispatchers: AppCoroutineDispatchers,
     getDateRangeUseCase: GetDateRangeUseCase,
     settingsRepository: SettingsRepository,
@@ -76,23 +78,38 @@ class DashboardViewModel(
         ) { currency, transactions, accounts, dateRange ->
 
             val filteredTransactions = (transactions?.map {
+                val convertedAmount = convertAmountUseCase(
+                    amount = it.amount.amount,
+                    fromCode = it.currencyCode.ifBlank { currency.code },
+                    toCode = currency.code,
+                )
                 it.toTransactionUIModel(
                     getFormattedAmountUseCase.invoke(
-                        it.amount.amount,
+                        convertedAmount,
                         currency,
                     ),
                 )
             } ?: emptyList()).take(MAX_TRANSACTIONS_IN_LIST)
 
-            val accountsConverted = accounts.map {
-                it.toAccountUiModel(
+            val accountsConverted = accounts.map { account ->
+                val convertedAmount = convertAmountUseCase(
+                    amount = account.amount,
+                    fromCode = account.currencyCode.ifBlank { currency.code },
+                    toCode = currency.code,
+                )
+                account.toAccountUiModel(
                     getFormattedAmountUseCase.invoke(
-                        it.amount,
+                        convertedAmount,
                         currency,
                     ),
-                    if (it.type == AccountType.CREDIT) {
+                    if (account.type == AccountType.CREDIT) {
+                        val convertedCreditLimit = convertAmountUseCase(
+                            amount = account.getAvailableCreditLimit(),
+                            fromCode = account.currencyCode.ifBlank { currency.code },
+                            toCode = currency.code,
+                        )
                         getFormattedAmountUseCase.invoke(
-                            it.getAvailableCreditLimit(),
+                            convertedCreditLimit,
                             currency
                         )
                     } else {
@@ -101,13 +118,20 @@ class DashboardViewModel(
                 )
             }
 
-            val incomeValue = transactions?.filter { it.type == TransactionType.INCOME }?.sumOf {
-                it.amount.amount
-            } ?: 0.0
-
-            val expenseValue = transactions?.filter { it.type == TransactionType.EXPENSE }?.sumOf {
-                it.amount.amount
-            } ?: 0.0
+            var incomeValue = 0.0
+            var expenseValue = 0.0
+            transactions?.forEach {
+                val convertedAmount = convertAmountUseCase(
+                    amount = it.amount.amount,
+                    fromCode = it.currencyCode.ifBlank { currency.code },
+                    toCode = currency.code,
+                )
+                when (it.type) {
+                    TransactionType.INCOME -> incomeValue += convertedAmount
+                    TransactionType.EXPENSE -> expenseValue += convertedAmount
+                    else -> Unit
+                }
+            }
 
 
             _state.update {

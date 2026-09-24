@@ -7,6 +7,7 @@ import com.naveenapps.expensemanager.core.common.utils.toMonthAndYear
 import com.naveenapps.expensemanager.core.common.utils.toYear
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.filter.daterange.GetDateRangeUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.filter.daterange.GetTransactionGroupTypeUseCase
 import com.naveenapps.expensemanager.core.model.Amount
@@ -32,6 +33,7 @@ class GetChartDataUseCase(
     private val getDateRangeUseCase: GetDateRangeUseCase,
     private val getTransactionGroupTypeUseCase: GetTransactionGroupTypeUseCase,
     private val getTransactionWithFilterUseCase: GetTransactionWithFilterUseCase,
+    private val convertAmountUseCase: ConvertAmountUseCase,
     private val dispatcher: AppCoroutineDispatchers,
 ) {
     @OptIn(ExperimentalTime::class)
@@ -69,7 +71,11 @@ class GetChartDataUseCase(
             transactions.forEach { item ->
                 val key = groupValue(groupType, item.createdOn)
                 val bucket = bucketTotals.getOrPut(key) { DoubleArray(2) }
-                val amount = item.amount.amount
+                val amount = convertAmountUseCase(
+                    amount = item.amount.amount,
+                    fromCode = item.currencyCode.ifBlank { currency.code },
+                    toCode = currency.code,
+                )
                 when {
                     item.category.type.isExpense() -> bucket[0] += amount
                     item.category.type.isIncome() -> bucket[1] += amount
