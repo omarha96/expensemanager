@@ -18,6 +18,7 @@ val AccountViewModelModule = module {
             addAccountUseCase = get(),
             updateAccountUseCase = get(),
             deleteAccountUseCase = get(),
+            getCountriesUseCase = get(),
             imageStorageRepository = get(),
             composeNavigator = get(),
             numberFormatRepository = get(),

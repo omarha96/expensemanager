@@ -9,6 +9,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.account.CheckAccountVal
 import com.naveenapps.expensemanager.core.domain.usecase.account.DeleteAccountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.FindAccountByIdUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.UpdateAccountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.country.GetCountriesUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
@@ -18,6 +19,7 @@ import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerArgsNames
 import com.naveenapps.expensemanager.core.repository.AccountRepository
+import com.naveenapps.expensemanager.core.repository.CountryRepository
 import com.naveenapps.expensemanager.core.repository.CurrencyRepository
 import com.naveenapps.expensemanager.core.repository.ImageStorageRepository
 import com.naveenapps.expensemanager.core.settings.data.repository.NumberFormatRepositoryImpl
@@ -41,6 +43,7 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
 
     private val accountRepository: AccountRepository = mock()
     private val currencyRepository: CurrencyRepository = mock()
+    private val countryRepository: CountryRepository = mock()
     private val appComposeNavigator: AppComposeNavigator = mock()
     private val imageStorageRepository: ImageStorageRepository = mock()
 
@@ -53,6 +56,7 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
     private val addAccountUseCase = AddAccountUseCase(accountRepository, validate)
     private val deleteAccountUseCase = DeleteAccountUseCase(accountRepository, validate)
     private val updateAccountUseCase = UpdateAccountUseCase(accountRepository, validate)
+    private val getCountriesUseCase = GetCountriesUseCase(countryRepository)
     private val numberFormatRepository = NumberFormatRepositoryImpl(
         coroutineScope = CoroutineScope(testCoroutineDispatcher.dispatcher),
         numberFormatSettingRepository = mock {
@@ -71,6 +75,7 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
         super.onCreate()
         whenever(currencyRepository.getDefaultCurrency()).thenReturn(defaultCurrency)
         whenever(currencyRepository.getSelectedCurrency()).thenReturn(currencyFlow)
+        whenever(countryRepository.readCountries()).thenReturn(emptyList())
 
         whenever(currencyRepository.getFormattedCurrency(any())).thenAnswer {
             val amount = it.arguments[0] as Amount
@@ -94,6 +99,7 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
             addAccountUseCase = addAccountUseCase,
             updateAccountUseCase = updateAccountUseCase,
             deleteAccountUseCase = deleteAccountUseCase,
+            getCountriesUseCase = getCountriesUseCase,
             imageStorageRepository = imageStorageRepository,
             composeNavigator = appComposeNavigator,
             numberFormatRepository = numberFormatRepository,
@@ -299,6 +305,7 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
                 addAccountUseCase = addAccountUseCase,
                 updateAccountUseCase = updateAccountUseCase,
                 deleteAccountUseCase = deleteAccountUseCase,
+                getCountriesUseCase = getCountriesUseCase,
                 imageStorageRepository = imageStorageRepository,
                 composeNavigator = appComposeNavigator,
                 numberFormatRepository = numberFormatRepository,

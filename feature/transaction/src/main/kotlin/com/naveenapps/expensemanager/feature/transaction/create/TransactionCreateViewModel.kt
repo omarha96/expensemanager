@@ -273,6 +273,7 @@ class TransactionCreateViewModel(
             createdOn = state.dateTime,
             updatedOn = Calendar.getInstance().time,
             attachments = state.attachments,
+            currencyCode = state.selectedFromAccount.currencyCode,
         )
     }
 

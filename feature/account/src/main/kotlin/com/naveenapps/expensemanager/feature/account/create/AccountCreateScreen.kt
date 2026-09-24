@@ -24,6 +24,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Paid
 import androidx.compose.material.icons.rounded.AccountBalanceWallet
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
@@ -52,13 +53,17 @@ import com.naveenapps.expensemanager.core.designsystem.components.IconAndColorCo
 import com.naveenapps.expensemanager.core.designsystem.ui.components.AppCardView
 import com.naveenapps.expensemanager.core.designsystem.ui.components.DecimalTextField
 import com.naveenapps.expensemanager.core.designsystem.ui.components.ExpenseManagerTopAppBar
+import com.naveenapps.expensemanager.core.designsystem.ui.components.SettingRow
 import com.naveenapps.expensemanager.core.designsystem.ui.components.SettingsSection
 import com.naveenapps.expensemanager.core.designsystem.ui.components.StringTextField
 import com.naveenapps.expensemanager.core.designsystem.ui.utils.rememberImagePickerActions
 import com.naveenapps.expensemanager.core.model.AccountType
 import com.naveenapps.expensemanager.core.model.Currency
 import com.naveenapps.expensemanager.core.model.TextFieldValue
+import com.naveenapps.expensemanager.core.model.toDisplayValue
 import com.naveenapps.expensemanager.feature.account.R
+import com.naveenapps.expensemanager.feature.country.CountryCurrencySelectionBottomSheet
+import com.naveenapps.expensemanager.feature.country.CountrySelectionEvent
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -94,6 +99,20 @@ private fun AccountCreateScaffoldView(
         DeleteDialogItem(
             confirm = { onAction.invoke(AccountCreateAction.Delete) },
             dismiss = { onAction.invoke(AccountCreateAction.DismissDeleteDialog) },
+        )
+    }
+
+    if (state.showCurrencySelection) {
+        CountryCurrencySelectionBottomSheet(
+            onEvent = { event ->
+                when (event) {
+                    CountrySelectionEvent.Dismiss ->
+                        onAction.invoke(AccountCreateAction.DismissCurrencySelection)
+
+                    is CountrySelectionEvent.CountrySelected ->
+                        onAction.invoke(AccountCreateAction.SelectCurrency(event.country))
+                }
+            },
         )
     }
 
@@ -153,9 +172,11 @@ private fun AccountCreateScaffoldView(
             totalAmount = state.totalAmount,
             totalAmountBackgroundColor = state.totalAmountBackgroundColor,
             customImagePath = state.customImagePath,
+            accountCurrency = state.accountCurrency,
             onCaptureRequested = onCaptureRequested,
             onGalleryRequested = onGalleryRequested,
             onRemoveImage = { onAction.invoke(AccountCreateAction.RemoveImage) },
+            onCurrencyClick = { onAction.invoke(AccountCreateAction.OpenCurrencySelection) },
         )
     }
 }
@@ -172,9 +193,11 @@ private fun AccountCreateScreen(
     totalAmount: String,
     totalAmountBackgroundColor: Int,
     customImagePath: String? = null,
+    accountCurrency: Currency,
     onCaptureRequested: () -> Unit = {},
     onGalleryRequested: () -> Unit = {},
     onRemoveImage: () -> Unit = {},
+    onCurrencyClick: () -> Unit = {},
 ) {
     Column(
         modifier = modifier.padding(horizontal = 16.dp),
@@ -213,6 +236,12 @@ private fun AccountCreateScreen(
                         label = R.string.account_name,
                         errorMessage = stringResource(id = R.string.account_name_error),
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
+                    )
+                    SettingRow(
+                        onClick = onCurrencyClick,
+                        title = stringResource(id = R.string.currency),
+                        subtitle = accountCurrency.toDisplayValue(),
+                        icon = Icons.Outlined.Paid,
                     )
                     BalanceSectionContent(
                         amount = amount,
@@ -356,6 +385,7 @@ private fun AccountCreateStatePreview() {
                 icon = selectedIconField,
                 creditLimit = nameField,
                 currency = Currency("$", ""),
+                accountCurrency = Currency("$", ""),
                 totalAmount = "$ 0.0",
                 totalAmountBackgroundColor = com.naveenapps.expensemanager.core.common.R.color.green_500,
                 amount = nameField,

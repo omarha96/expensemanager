@@ -13,6 +13,8 @@ data class AccountCreateState(
     val creditLimit: TextFieldValue<String>,
     val amount: TextFieldValue<String>,
     val currency: Currency,
+    val accountCurrency: Currency,
+    val showCurrencySelection: Boolean = false,
     val totalAmount: String,
     @DrawableRes val totalAmountBackgroundColor: Int,
     val showDeleteButton: Boolean,

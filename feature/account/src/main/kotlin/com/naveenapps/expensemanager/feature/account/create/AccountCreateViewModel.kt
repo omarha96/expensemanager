@@ -9,12 +9,14 @@ import com.naveenapps.expensemanager.core.domain.usecase.account.AddAccountUseCa
 import com.naveenapps.expensemanager.core.domain.usecase.account.DeleteAccountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.FindAccountByIdUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.UpdateAccountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.country.GetCountriesUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
 import com.naveenapps.expensemanager.core.model.Account
 import com.naveenapps.expensemanager.core.model.AccountType
 import com.naveenapps.expensemanager.core.model.Amount
+import com.naveenapps.expensemanager.core.model.Country
 import com.naveenapps.expensemanager.core.model.Currency
 import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.model.StoredIcon
@@ -42,6 +44,7 @@ class AccountCreateViewModel(
     private val addAccountUseCase: AddAccountUseCase,
     private val updateAccountUseCase: UpdateAccountUseCase,
     private val deleteAccountUseCase: DeleteAccountUseCase,
+    private val getCountriesUseCase: GetCountriesUseCase,
     private val imageStorageRepository: ImageStorageRepository,
     private val composeNavigator: AppComposeNavigator,
     private val numberFormatRepository: NumberFormatRepository,
@@ -83,6 +86,7 @@ class AccountCreateViewModel(
             ),
             totalAmountBackgroundColor = R.color.green_500,
             currency = getDefaultCurrencyUseCase.invoke(),
+            accountCurrency = getDefaultCurrencyUseCase.invoke(),
             totalAmount = "",
             showDeleteButton = false,
             showDeleteDialog = false,
@@ -126,13 +130,22 @@ class AccountCreateViewModel(
         )
     }
 
-    private fun updateAccountInfo(account: Account?) {
+    private suspend fun updateAccountInfo(account: Account?) {
         this.account = account
 
         this.account?.let { accountItem ->
 
             val totalAmount =
                 getTotalAmount(getCreditAmount().toString(), _state.value.amount.value)
+
+            val accountCurrency = if (accountItem.currencyCode.isBlank()) {
+                _state.value.accountCurrency
+            } else {
+                getCountriesUseCase.invoke()
+                    .firstOrNull { it.currencyCode == accountItem.currencyCode }
+                    ?.currency
+                    ?: _state.value.accountCurrency
+            }
 
             _state.update {
                 it.copy(
@@ -146,6 +159,7 @@ class AccountCreateViewModel(
                     creditLimit = it.creditLimit.copy(
                         value = numberFormatRepository.formatForEditing(accountItem.creditLimit)
                     ),
+                    accountCurrency = accountCurrency,
                     totalAmount = getAmountValue(totalAmount, _state.value.currency).amountString
                         ?: "",
                     totalAmountBackgroundColor = getBalanceBackgroundColor(totalAmount),
@@ -243,7 +257,8 @@ class AccountCreateViewModel(
             },
             createdOn = Calendar.getInstance().time,
             updatedOn = Calendar.getInstance().time,
-            sequence = account?.sequence ?: Int.MAX_VALUE
+            sequence = account?.sequence ?: Int.MAX_VALUE,
+            currencyCode = state.value.accountCurrency.code,
         )
 
         viewModelScope.launch {
@@ -356,6 +371,20 @@ class AccountCreateViewModel(
                 (numberFormatRepository.parseToDouble(accountAmount) ?: 0.0)
     }
 
+    private fun openCurrencySelection() {
+        _state.update { it.copy(showCurrencySelection = true) }
+    }
+
+    private fun dismissCurrencySelection() {
+        _state.update { it.copy(showCurrencySelection = false) }
+    }
+
+    private fun selectCurrency(country: Country) {
+        _state.update {
+            it.copy(accountCurrency = country.currency, showCurrencySelection = false)
+        }
+    }
+
     private fun dismissDeleteDialog() {
         _state.update { it.copy(showDeleteDialog = false) }
     }
@@ -373,6 +402,9 @@ class AccountCreateViewModel(
             AccountCreateAction.ShowDeleteDialog -> showDeleteDialog()
             is AccountCreateAction.ImagePicked -> onImagePicked(action.uri)
             AccountCreateAction.RemoveImage -> removeImage()
+            AccountCreateAction.OpenCurrencySelection -> openCurrencySelection()
+            AccountCreateAction.DismissCurrencySelection -> dismissCurrencySelection()
+            is AccountCreateAction.SelectCurrency -> selectCurrency(action.country)
         }
     }
 
