@@ -204,6 +204,7 @@ dependencies {
     implementation(project(":core:domain"))
     implementation(project(":core:data"))
     implementation(project(":core:datastore"))
+    implementation(project(":core:network"))
     implementation(project(":core:navigation"))
     implementation(project(":core:notification"))
     implementation(project(":core:repository"))
