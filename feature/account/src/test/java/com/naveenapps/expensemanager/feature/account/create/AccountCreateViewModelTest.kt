@@ -28,16 +28,14 @@ import com.naveenapps.expensemanager.core.testing.BaseCoroutineTest
 import com.naveenapps.expensemanager.core.testing.FAKE_ACCOUNT
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.mockito.kotlin.any
-import org.mockito.kotlin.doReturn
 import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
-import org.mockito.kotlin.onBlocking
-import org.mockito.kotlin.stub
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
@@ -78,9 +76,7 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
         super.onCreate()
         whenever(currencyRepository.getDefaultCurrency()).thenReturn(defaultCurrency)
         whenever(currencyRepository.getSelectedCurrency()).thenReturn(currencyFlow)
-        countryRepository.stub {
-            onBlocking { readCountries() } doReturn emptyList()
-        }
+        runBlocking { whenever(countryRepository.readCountries()).thenReturn(emptyList()) }
 
         whenever(currencyRepository.getFormattedCurrency(any())).thenAnswer {
             val amount = it.arguments[0] as Amount
