@@ -20,9 +20,10 @@ class CurrencyApiRepositoryImpl(
 
     override fun getProfile(): Flow<CurrencyApiProfile?> = dataStore.getProfile()
 
-    override suspend fun saveProfile(profile: CurrencyApiProfile) = withContext(dispatchers.io) {
-        dataStore.saveProfile(profile)
-    }
+    override suspend fun saveProfile(profile: CurrencyApiProfile): Unit =
+        withContext(dispatchers.io) {
+            dataStore.saveProfile(profile)
+        }
 
     override suspend fun fetchLatestRates(
         baseCurrencyCode: String,

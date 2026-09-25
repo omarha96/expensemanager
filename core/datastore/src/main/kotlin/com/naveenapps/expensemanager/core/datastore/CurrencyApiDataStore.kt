@@ -23,10 +23,12 @@ class CurrencyApiDataStore(private val dataStore: DataStore<Preferences>) {
             )
         }
 
-    suspend fun saveProfile(profile: CurrencyApiProfile) = dataStore.edit { preferences ->
-        preferences[KEY_PRESET] = profile.preset.name
-        preferences[KEY_BASE_URL] = profile.baseUrl
-        preferences[KEY_API_KEY] = profile.apiKey
+    suspend fun saveProfile(profile: CurrencyApiProfile): Unit {
+        dataStore.edit { preferences ->
+            preferences[KEY_PRESET] = profile.preset.name
+            preferences[KEY_BASE_URL] = profile.baseUrl
+            preferences[KEY_API_KEY] = profile.apiKey
+        }
     }
 
     companion object {
