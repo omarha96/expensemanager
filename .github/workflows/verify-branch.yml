@@ -43,6 +43,15 @@ jobs:
       - name: Assemble debug (compiles every module)
         run: ./gradlew assembleDebug
 
+      - name: Upload debug APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
       - name: Run unit tests
         if: always()
         run: ./gradlew test
