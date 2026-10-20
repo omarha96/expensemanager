@@ -10,6 +10,8 @@ import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCu
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.AddTransactionUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.DeleteTransactionUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.GetTransactionWithFilterUseCase
 import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.model.Transaction
@@ -33,6 +35,8 @@ import kotlinx.coroutines.launch
 class TransactionListViewModel(
     getCurrencyUseCase: GetCurrencyUseCase,
     getFormattedAmountUseCase: GetFormattedAmountUseCase,
+    convertAmountUseCase: ConvertAmountUseCase,
+    formatAmountInCurrencyUseCase: FormatAmountInCurrencyUseCase,
     getTransactionWithFilterUseCase: GetTransactionWithFilterUseCase,
     appCoroutineDispatchers: AppCoroutineDispatchers,
     private val appComposeNavigator: AppComposeNavigator,
@@ -69,16 +73,20 @@ class TransactionListViewModel(
             val groupedItem = matching.groupBy {
                 it.createdOn.toCompleteDateWithDate()
             }.map {
-                val totalAmount = it.value.toTransactionSum()
+                // The day's net is converted into the display currency; rows keep their own.
+                val totalAmount = convertAmountUseCase.total(
+                    it.value.toSignedAmounts(),
+                    currency.code,
+                )
                 TransactionGroup(
                     date = it.key,
-                    amountTextColor = totalAmount.getAmountTextColor(),
-                    totalAmount = getFormattedAmountUseCase.invoke(totalAmount, currency),
+                    amountTextColor = (totalAmount.value ?: 0.0).getAmountTextColor(),
+                    totalAmount = getFormattedAmountUseCase(totalAmount, currency),
                     transactions = it.value.map { transaction ->
                         transaction.toTransactionUIModel(
-                            getFormattedAmountUseCase.invoke(
+                            formatAmountInCurrencyUseCase(
                                 transaction.amount.amount,
-                                currency,
+                                transaction.fromCurrencyCode,
                             ),
                         )
                     },
@@ -171,21 +179,15 @@ internal fun Transaction.matches(query: String): Boolean {
         .any { it.contains(needle, ignoreCase = true) }
 }
 
-fun List<Transaction>.toTransactionSum() = this.sumOf {
-    when (it.type) {
-        TransactionType.INCOME -> {
-            it.amount.amount
-        }
-
-        TransactionType.EXPENSE -> {
-            it.amount.amount * -1
-        }
-
-        TransactionType.TRANSFER -> {
-            0.0
+/** (signed amount, currency) per income/expense; transfers don't change the net. */
+fun List<Transaction>.toSignedAmounts(): List<Pair<Double, String>> =
+    this.mapNotNull {
+        when (it.type) {
+            TransactionType.INCOME -> it.amount.amount to it.fromCurrencyCode
+            TransactionType.EXPENSE -> -it.amount.amount to it.fromCurrencyCode
+            TransactionType.TRANSFER -> null
         }
     }
-}
 
 fun List<TransactionGroup>.convertGroupToTransactionListItems(): List<TransactionListItem> = buildList {
     this@convertGroupToTransactionListItems.forEach {

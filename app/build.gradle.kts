@@ -18,6 +18,21 @@ plugins {
 }
 
 
+// Opt-out for builds that must not report to the Firebase project in google-services.json
+// (e.g. a fork's local or CI builds). Set `expensemanager.disableTelemetry=true` in
+// gradle.properties or local.properties, or pass -Pexpensemanager.disableTelemetry=true.
+// Unset = unchanged behaviour.
+val telemetryDisabled: Boolean = run {
+    val localProperties = Properties().apply {
+        val file = rootProject.file("local.properties")
+        if (file.exists()) FileInputStream(file).use { load(it) }
+    }
+    val value = providers.gradleProperty("expensemanager.disableTelemetry").orNull
+        ?: localProperties.getProperty("expensemanager.disableTelemetry")
+    value?.trim()?.toBoolean() == true
+}
+println("----- Firebase telemetry disabled: $telemetryDisabled -----")
+
 val keysFolderPath: String =
     if (File("${rootDir.absolutePath}/keys/credentials.properties").exists()) {
         "${rootDir.absolutePath}/keys"
@@ -143,6 +158,12 @@ android {
     defaultConfig {
         applicationId = "com.naveenapps.expensemanager"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // Firebase data-collection switches (see AndroidManifest.xml); the defaults below
+        // are the SDKs' own defaults, so nothing changes unless telemetry is disabled.
+        manifestPlaceholders["firebaseAnalyticsDeactivated"] = telemetryDisabled.toString()
+        manifestPlaceholders["firebaseCrashlyticsEnabled"] = (!telemetryDisabled).toString()
+        manifestPlaceholders["firebaseDataCollectionEnabled"] = (!telemetryDisabled).toString()
     }
 
     buildTypes {
@@ -168,6 +189,23 @@ android {
                 ?: signingConfigs.getByName("debug")
 
             signingConfig = keyStore
+
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = !telemetryDisabled
+            }
+        }
+        // Release-configured build (R8, resource shrinking, not debuggable) that installs
+        // under the ".debug" application id, so it can be measured on a device next to the
+        // Play Store app. ".debug" is the only extra id google-services.json knows about.
+        create("perf") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            // Local measurement builds must not upload R8 mapping files to Firebase.
+            configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+                mappingFileUploadEnabled = false
+            }
         }
     }
 
@@ -198,9 +236,12 @@ dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:designsystem"))
     implementation(project(":core:database"))
+    // Room types for the dev-database reset callback and forcing the database open at startup.
+    implementation(libs.room.runtime)
     implementation(project(":core:domain"))
     implementation(project(":core:data"))
     implementation(project(":core:datastore"))
+    implementation(project(":core:network"))
     implementation(project(":core:navigation"))
     implementation(project(":core:notification"))
     implementation(project(":core:repository"))

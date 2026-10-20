@@ -5,8 +5,10 @@ import com.naveenapps.expensemanager.core.common.utils.toCompleteDate
 import com.naveenapps.expensemanager.core.common.utils.toCompleteDateWithDate
 import com.naveenapps.expensemanager.core.common.utils.toMonthAndYear
 import com.naveenapps.expensemanager.core.common.utils.toYear
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.filter.daterange.GetDateRangeUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.filter.daterange.GetTransactionGroupTypeUseCase
 import com.naveenapps.expensemanager.core.model.Amount
@@ -16,8 +18,6 @@ import com.naveenapps.expensemanager.core.model.TransactionUiItem
 import com.naveenapps.expensemanager.core.model.isExpense
 import com.naveenapps.expensemanager.core.model.isIncome
 import com.naveenapps.expensemanager.core.model.toTransactionUIModel
-import java.util.Date
-import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
@@ -25,6 +25,8 @@ import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
+import java.util.Date
+import kotlin.time.ExperimentalTime
 
 class GetChartDataUseCase(
     private val getCurrencyUseCase: GetCurrencyUseCase,
@@ -32,6 +34,8 @@ class GetChartDataUseCase(
     private val getDateRangeUseCase: GetDateRangeUseCase,
     private val getTransactionGroupTypeUseCase: GetTransactionGroupTypeUseCase,
     private val getTransactionWithFilterUseCase: GetTransactionWithFilterUseCase,
+    private val convertAmountUseCase: ConvertAmountUseCase,
+    private val formatAmountInCurrencyUseCase: FormatAmountInCurrencyUseCase,
     private val dispatcher: AppCoroutineDispatchers,
 ) {
     @OptIn(ExperimentalTime::class)
@@ -53,11 +57,8 @@ class GetChartDataUseCase(
             // from 1970 to year ~292 million. Forcing YEAR and clamping both ends to actual
             // transaction dates keeps the chart point count equal to the number of distinct
             // years in the data — naturally bounded, no hard cap needed.
-            val groupType = if (isAllTime) {
-                GroupType.YEAR
-            } else {
-                getTransactionGroupTypeUseCase.invoke(dateRangeModel.type)
-            }
+            val groupType = if (isAllTime) GroupType.YEAR
+            else getTransactionGroupTypeUseCase.invoke(dateRangeModel.type)
 
             val zeroFormatted = getFormattedAmountUseCase.invoke(0.0, currency)
 
@@ -69,16 +70,30 @@ class GetChartDataUseCase(
             val bucketTotals = HashMap<String, DoubleArray>(minOf(transactions.size, MAX_CHART_POINTS))
             val transactionItems = ArrayList<TransactionUiItem>(transactions.size)
 
+            // If any amount can't be converted, no chart is drawn: a chart missing some
+            // transactions would look complete while being wrong.
+            var chartAvailable = true
             transactions.forEach { item ->
                 val key = groupValue(groupType, item.createdOn)
                 val bucket = bucketTotals.getOrPut(key) { DoubleArray(2) }
-                val amount = item.amount.amount
-                when {
-                    item.category.type.isExpense() -> bucket[0] += amount
-                    item.category.type.isIncome() -> bucket[1] += amount
+                val amount = convertAmountUseCase(
+                    amount = item.amount.amount,
+                    fromCode = item.fromCurrencyCode,
+                    toCode = currency.code,
+                )
+                if (amount == null) {
+                    chartAvailable = false
+                } else {
+                    when {
+                        item.category.type.isExpense() -> bucket[0] += amount
+                        item.category.type.isIncome() -> bucket[1] += amount
+                    }
                 }
+                // Each row shows what was actually recorded, in its own currency.
                 transactionItems.add(
-                    item.toTransactionUIModel(getFormattedAmountUseCase.invoke(amount, currency)),
+                    item.toTransactionUIModel(
+                        formatAmountInCurrencyUseCase(item.amount.amount, item.fromCurrencyCode),
+                    ),
                 )
             }
 
@@ -125,25 +140,17 @@ class GetChartDataUseCase(
                 dates.add(key)
                 expenses.add(
                     FloatEntryModel(
-                        index,
-                        totalExpense,
-                        if (totalExpense == 0.0) {
-                            zeroFormatted
-                        } else {
-                            getFormattedAmountUseCase.invoke(totalExpense, currency)
-                        },
-                    ),
+                        index, totalExpense,
+                        if (totalExpense == 0.0) zeroFormatted
+                        else getFormattedAmountUseCase.invoke(totalExpense, currency)
+                    )
                 )
                 incomes.add(
                     FloatEntryModel(
-                        index,
-                        totalIncome,
-                        if (totalIncome == 0.0) {
-                            zeroFormatted
-                        } else {
-                            getFormattedAmountUseCase.invoke(totalIncome, currency)
-                        },
-                    ),
+                        index, totalIncome,
+                        if (totalIncome == 0.0) zeroFormatted
+                        else getFormattedAmountUseCase.invoke(totalIncome, currency)
+                    )
                 )
 
                 fromDate = getAdjustedDateTime(groupType, fromDate)
@@ -152,11 +159,8 @@ class GetChartDataUseCase(
 
             AnalysisData(
                 transactionItems,
-                if (bucketTotals.isEmpty()) {
-                    null
-                } else {
-                    AnalysisChartData(listOf(expenses, incomes), dates)
-                },
+                if (bucketTotals.isEmpty() || !chartAvailable) null
+                else AnalysisChartData(listOf(expenses, incomes), dates)
             )
         }.flowOn(dispatcher.computation)
     }

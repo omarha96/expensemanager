@@ -6,16 +6,11 @@ import com.naveenapps.expensemanager.core.common.utils.AppCoroutineDispatchers
 import com.naveenapps.expensemanager.core.common.utils.fromMonthAndYearKey
 import com.naveenapps.expensemanager.core.common.utils.toMonthAndYearKey
 import com.naveenapps.expensemanager.core.common.utils.toYear
-import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
-import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.GetTransactionWithFilterUseCase
 import com.naveenapps.expensemanager.core.model.Amount
 import com.naveenapps.expensemanager.core.model.Budget
 import com.naveenapps.expensemanager.core.model.BudgetPeriod
-import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.model.TransactionUiItem
-import com.naveenapps.expensemanager.core.model.isExpense
-import com.naveenapps.expensemanager.core.model.toTransactionUIModel
 import com.naveenapps.expensemanager.core.repository.BudgetRepository
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -27,34 +22,17 @@ import kotlinx.coroutines.flow.flowOn
 class GetBudgetsUseCase(
     private val budgetRepository: BudgetRepository,
     private val getTransactionWithFilterUseCase: GetTransactionWithFilterUseCase,
-    private val getCurrencyUseCase: GetCurrencyUseCase,
-    private val getFormattedAmountUseCase: GetFormattedAmountUseCase,
-    private val getBudgetTransactionsUseCase: GetBudgetTransactionsUseCase,
-    private val appCoroutineDispatchers: AppCoroutineDispatchers,
+    private val calculateBudgetUseCase: CalculateBudgetUseCase,
+    private val appCoroutineDispatchers: AppCoroutineDispatchers
 ) {
-    operator fun invoke(): Flow<List<BudgetUiModel>> = combine(
-        getCurrencyUseCase.invoke(),
-        getTransactionWithFilterUseCase.invoke(),
-        budgetRepository.getBudgets(),
-    ) { currency, _, budgets ->
-        budgets.map { budget ->
-            val transactions = when (val response = getBudgetTransactionsUseCase.invoke(budget)) {
-                is Resource.Error -> null
-                is Resource.Success -> response.data.filter { it.type.isExpense() }
-            }
-            val transactionAmount = transactions?.sumOf { it.amount.amount } ?: 0.0
-            val percent = (transactionAmount / budget.amount).toFloat() * 100
-            budget.toBudgetUiModel(
-                name = budgetName(budget.selectedMonth, budget.periodType),
-                budgetAmount = getFormattedAmountUseCase(budget.amount, currency),
-                transactionAmount = getFormattedAmountUseCase(transactionAmount, currency),
-                percent,
-                transactions?.map {
-                    it.toTransactionUIModel(getFormattedAmountUseCase(it.amount.amount, currency))
-                },
-            )
-        }
-    }.flowOn(appCoroutineDispatchers.computation)
+    operator fun invoke(): Flow<List<BudgetUiModel>> {
+        return combine(
+            getTransactionWithFilterUseCase.invoke(),
+            budgetRepository.getBudgets(),
+        ) { _, budgets ->
+            budgets.map { budget -> calculateBudgetUseCase(budget) }
+        }.flowOn(appCoroutineDispatchers.computation)
+    }
 }
 
 private val shortMonthFormat = SimpleDateFormat("MMM yyyy", Locale.getDefault())
@@ -114,4 +92,8 @@ data class BudgetUiModel(
     val transactionAmount: Amount,
     val percent: Float,
     val transactions: List<TransactionUiItem>? = null,
+    /** Spending includes other currencies, converted at today's rate. */
+    val convertedAtCurrentRates: Boolean = false,
+    /** Conversion is disabled and expenses in other currencies were left out of the spending. */
+    val otherCurrenciesExcluded: Boolean = false,
 )

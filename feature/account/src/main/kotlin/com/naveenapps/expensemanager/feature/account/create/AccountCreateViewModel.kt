@@ -4,40 +4,48 @@ import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.naveenapps.expensemanager.core.common.R
 import com.naveenapps.expensemanager.core.designsystem.R as DesignSystemR
+import com.naveenapps.expensemanager.core.common.R
 import com.naveenapps.expensemanager.core.domain.usecase.account.AddAccountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.account.ArchiveAccountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.DeleteAccountUseCase
-import com.naveenapps.expensemanager.core.domain.usecase.account.FindAccountByIdUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.GetAccountDeleteImpactUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.account.FindAccountByIdUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.UpdateAccountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.country.GetCountriesUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
 import com.naveenapps.expensemanager.core.model.Account
 import com.naveenapps.expensemanager.core.model.AccountType
 import com.naveenapps.expensemanager.core.model.Amount
+import com.naveenapps.expensemanager.core.model.Country
 import com.naveenapps.expensemanager.core.model.Currency
 import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.model.StoredIcon
 import com.naveenapps.expensemanager.core.model.TextFieldValue
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
+import com.naveenapps.expensemanager.core.navigation.ExpenseManagerScreens
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerArgsNames
+import com.naveenapps.expensemanager.core.repository.AccountRepository
 import com.naveenapps.expensemanager.core.repository.AnalyticsEvents
 import com.naveenapps.expensemanager.core.repository.AnalyticsParams
 import com.naveenapps.expensemanager.core.repository.AnalyticsRepository
+import com.naveenapps.expensemanager.core.repository.ExchangeRateRepository
 import com.naveenapps.expensemanager.core.repository.ImageStorageRepository
 import com.naveenapps.expensemanager.core.settings.domain.repository.NumberFormatRepository
-import java.util.Calendar
-import java.util.UUID
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.util.Calendar
+import java.util.UUID
+
 
 class AccountCreateViewModel(
     savedStateHandle: SavedStateHandle,
@@ -48,10 +56,14 @@ class AccountCreateViewModel(
     private val addAccountUseCase: AddAccountUseCase,
     private val updateAccountUseCase: UpdateAccountUseCase,
     private val deleteAccountUseCase: DeleteAccountUseCase,
-    private val getAccountDeleteImpactUseCase: GetAccountDeleteImpactUseCase,
+    private val archiveAccountUseCase: ArchiveAccountUseCase,
+    private val accountRepository: AccountRepository,
+    private val getCountriesUseCase: GetCountriesUseCase,
     private val imageStorageRepository: ImageStorageRepository,
     private val composeNavigator: AppComposeNavigator,
     private val numberFormatRepository: NumberFormatRepository,
+    private val exchangeRateRepository: ExchangeRateRepository,
+    private val getAccountDeleteImpactUseCase: GetAccountDeleteImpactUseCase,
     private val analyticsRepository: AnalyticsRepository,
 ) : ViewModel() {
 
@@ -62,51 +74,59 @@ class AccountCreateViewModel(
             name = TextFieldValue(
                 value = "",
                 valueError = false,
-                onValueChange = this::setNameChange,
+                onValueChange = this::setNameChange
             ),
             type = TextFieldValue(
                 value = AccountType.REGULAR,
                 valueError = false,
-                onValueChange = this::setAccountTypeChange,
+                onValueChange = this::setAccountTypeChange
             ),
             amount = TextFieldValue(
                 value = "",
                 valueError = false,
-                onValueChange = this::setAmount,
+                onValueChange = this::setAmount
             ),
             color = TextFieldValue(
                 value = DEFAULT_COLOR,
                 valueError = false,
-                onValueChange = this::setColorValue,
+                onValueChange = this::setColorValue
             ),
             icon = TextFieldValue(
                 value = DEFAULT_ICON,
                 valueError = false,
-                onValueChange = this::setIconValue,
+                onValueChange = this::setIconValue
             ),
             creditLimit = TextFieldValue(
                 value = "",
                 valueError = false,
-                onValueChange = this::setCreditLimitChange,
+                onValueChange = this::setCreditLimitChange
             ),
             totalAmountBackgroundColor = R.color.green_500,
             currency = getDefaultCurrencyUseCase.invoke(),
+            accountCurrency = null,
             totalAmount = "",
             showDeleteButton = false,
             showDeleteDialog = false,
-        ),
+        )
     )
     val state = _state.asStateFlow()
 
-    // One-shot error messages (string resources) for the screen's snackbar. Save and delete
-    // failures used to be ignored, so the screen just stayed open with no feedback.
+    // One-shot error messages (string resources) for the screen's snackbar, so a failed save
+    // or delete doesn't just leave the screen open with no feedback.
     private val _errorMessage = Channel<Int>(Channel.BUFFERED)
     val errorMessage = _errorMessage.receiveAsFlow()
 
     private var account: Account? = null
 
+    private val isNewAccount = savedStateHandle.get<String>(ExpenseManagerArgsNames.ID) == null
+
     init {
         getCurrencyUseCase.invoke().onEach { currency ->
+            // A new account defaults to the app's selected currency, shown in the picker row
+            // exactly as it will be saved. Existing accounts only ever show their own currency.
+            if (isNewAccount && _state.value.accountCurrency == null && currency.code.isNotBlank()) {
+                _state.update { it.copy(accountCurrency = currency) }
+            }
 
             val totalAmount =
                 getTotalAmount(getCreditAmount().toString(), _state.value.amount.value)
@@ -116,7 +136,7 @@ class AccountCreateViewModel(
                     currency = currency,
                     totalAmount = getAmountValue(totalAmount, currency).amountString
                         ?: "",
-                    totalAmountBackgroundColor = getBalanceBackgroundColor(totalAmount),
+                    totalAmountBackgroundColor = getBalanceBackgroundColor(totalAmount)
                 )
             }
         }.launchIn(viewModelScope)
@@ -128,9 +148,11 @@ class AccountCreateViewModel(
 
     private fun getAmountValue(
         amount: Double,
-        currency: Currency? = null,
+        currency: Currency? = null
     ): Amount {
-        val selectedCurrency = currency ?: _state.value.currency
+
+        // Balances are in the account's own currency, never the app's display currency.
+        val selectedCurrency = currency ?: _state.value.accountCurrency ?: _state.value.currency
 
         return getFormattedAmountUseCase.invoke(
             amount = amount,
@@ -138,13 +160,20 @@ class AccountCreateViewModel(
         )
     }
 
-    private fun updateAccountInfo(account: Account?) {
+    private suspend fun updateAccountInfo(account: Account?) {
         this.account = account
 
         this.account?.let { accountItem ->
 
+            // From the loaded account itself: the form fields aren't populated yet at this point.
             val totalAmount = accountItem.amount +
                 if (accountItem.type == AccountType.CREDIT) accountItem.creditLimit else 0.0
+
+            // No fallback: an account without a (known) currency shows as "not set" and can't be
+            // saved until the user picks one.
+            val accountCurrency = accountItem.currencyCode.takeIf { it.isNotBlank() }?.let { code ->
+                getCountriesUseCase.invoke().firstOrNull { it.currencyCode == code }?.currency
+            }
 
             _state.update {
                 it.copy(
@@ -153,13 +182,15 @@ class AccountCreateViewModel(
                     color = it.color.copy(value = accountItem.storedIcon.backgroundColor),
                     icon = it.icon.copy(value = accountItem.storedIcon.name),
                     amount = it.amount.copy(
-                        value = numberFormatRepository.formatForEditing(accountItem.amount),
+                        value = numberFormatRepository.formatForEditing(accountItem.amount)
                     ),
                     creditLimit = it.creditLimit.copy(
-                        value = numberFormatRepository.formatForEditing(accountItem.creditLimit),
+                        value = numberFormatRepository.formatForEditing(accountItem.creditLimit)
                     ),
-                    totalAmount = getAmountValue(totalAmount, _state.value.currency).amountString
+                    accountCurrency = accountCurrency,
+                    totalAmount = getAmountValue(totalAmount, accountCurrency).amountString
                         ?: "",
+                    hasTransactions = accountRepository.hasTransactions(accountItem.id),
                     totalAmountBackgroundColor = getBalanceBackgroundColor(totalAmount),
                     showDeleteButton = true,
                     customImagePath = accountItem.storedIcon.customImagePath,
@@ -168,10 +199,12 @@ class AccountCreateViewModel(
         }
     }
 
-    private fun getBalanceBackgroundColor(totalAmount: Double): Int = if (totalAmount < 0) {
-        R.color.red_500
-    } else {
-        R.color.green_500
+    private fun getBalanceBackgroundColor(totalAmount: Double): Int {
+        return if (totalAmount < 0) {
+            R.color.red_500
+        } else {
+            R.color.green_500
+        }
     }
 
     private fun readAccountInfo(accountId: String?) {
@@ -179,7 +212,6 @@ class AccountCreateViewModel(
         viewModelScope.launch {
             when (val response = findAccountByIdUseCase.invoke(accountId)) {
                 is Resource.Error -> Unit
-
                 is Resource.Success -> {
                     updateAccountInfo(response.data)
                 }
@@ -195,7 +227,6 @@ class AccountCreateViewModel(
                         dismissDeleteDialog()
                         _errorMessage.send(DesignSystemR.string.error_delete_failed)
                     }
-
                     is Resource.Success -> {
                         account.storedIcon.customImagePath?.let {
                             imageStorageRepository.deleteAccountImage(it)
@@ -219,6 +250,12 @@ class AccountCreateViewModel(
 
         var isError = false
 
+        val accountCurrency = state.value.accountCurrency
+        if (accountCurrency == null || accountCurrency.code.isBlank()) {
+            _state.update { it.copy(accountCurrencyError = true) }
+            isError = true
+        }
+
         if (name.isBlank()) {
             _state.update { it.copy(name = it.name.copy(valueError = true)) }
             isError = true
@@ -229,11 +266,9 @@ class AccountCreateViewModel(
             isError = true
         }
 
-        if (accountType == AccountType.CREDIT && (
-                creditLimit.isBlank() || numberFormatRepository.parseToDouble(
-                    creditLimit,
-                ) == null
-                )
+        if (accountType == AccountType.CREDIT && (creditLimit.isBlank() || numberFormatRepository.parseToDouble(
+                creditLimit
+            ) == null)
         ) {
             _state.update { it.copy(creditLimit = it.creditLimit.copy(valueError = true)) }
             isError = true
@@ -261,20 +296,20 @@ class AccountCreateViewModel(
             createdOn = account?.createdOn ?: Calendar.getInstance().time,
             updatedOn = Calendar.getInstance().time,
             sequence = account?.sequence ?: Int.MAX_VALUE,
+            currencyCode = accountCurrency!!.code,
         )
 
         viewModelScope.launch {
             val previouslyPersistedImagePath =
                 this@AccountCreateViewModel.account?.storedIcon?.customImagePath
             val isNewAccount = this@AccountCreateViewModel.account == null
-            val response = if (this@AccountCreateViewModel.account != null) {
-                updateAccountUseCase(account)
-            } else {
+            val response = if (isNewAccount) {
                 addAccountUseCase(account)
+            } else {
+                updateAccountUseCase(account)
             }
             when (response) {
                 is Resource.Error -> _errorMessage.send(DesignSystemR.string.error_save_failed)
-
                 is Resource.Success -> {
                     if (isNewAccount) {
                         analyticsRepository.logEvent(
@@ -292,9 +327,24 @@ class AccountCreateViewModel(
                     }
                     discardSessionImages()
                     closePage()
+                    if (isNewAccount && needsExchangeMethodChoice()) {
+                        composeNavigator.navigate(ExpenseManagerScreens.ExchangeMethodScreen)
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * True once accounts span more than one currency while the user hasn't picked an exchange
+     * method yet: that is the moment conversion starts to matter, so they are asked to choose.
+     */
+    private suspend fun needsExchangeMethodChoice(): Boolean {
+        if (exchangeRateRepository.isMethodChosen()) return false
+        val currencies = accountRepository.getAccounts().firstOrNull().orEmpty()
+            .map { it.currencyCode }
+            .distinct()
+        return currencies.size > 1
     }
 
     private fun closePage() {
@@ -340,40 +390,78 @@ class AccountCreateViewModel(
     }
 
     private fun setAmount(amount: String) {
+
         val totalAmount = (numberFormatRepository.parseToDouble(amount) ?: 0.0) + getCreditAmount()
 
         _state.update {
             it.copy(
                 amount = it.amount.copy(value = amount, valueError = amount.isBlank()),
                 totalAmountBackgroundColor = getBalanceBackgroundColor(totalAmount),
-                totalAmount = getAmountValue(totalAmount).amountString ?: "",
+                totalAmount = getAmountValue(totalAmount).amountString ?: ""
             )
         }
     }
 
-    private fun getCreditAmount(): Double = if (_state.value.type.value == AccountType.CREDIT) {
-        numberFormatRepository.parseToDouble(_state.value.creditLimit.value) ?: 0.0
-    } else {
-        0.0
+    private fun getCreditAmount(): Double {
+        return if (_state.value.type.value == AccountType.CREDIT) {
+            numberFormatRepository.parseToDouble(_state.value.creditLimit.value) ?: 0.0
+        } else {
+            0.0
+        }
     }
 
     private fun setCreditLimitChange(creditLimit: String) {
+
         val totalAmount = getTotalAmount(creditLimit, _state.value.amount.value)
 
         _state.update {
             it.copy(
                 creditLimit = it.creditLimit.copy(
                     value = creditLimit,
-                    valueError = creditLimit.isBlank(),
+                    valueError = creditLimit.isBlank()
                 ),
                 totalAmountBackgroundColor = getBalanceBackgroundColor(totalAmount),
-                totalAmount = getAmountValue(totalAmount).amountString ?: "",
+                totalAmount = getAmountValue(totalAmount).amountString ?: ""
             )
         }
     }
 
-    private fun getTotalAmount(creditLimit: String, accountAmount: String): Double = (numberFormatRepository.parseToDouble(creditLimit) ?: 0.0) +
-        (numberFormatRepository.parseToDouble(accountAmount) ?: 0.0)
+    private fun getTotalAmount(creditLimit: String, accountAmount: String): Double {
+        return (numberFormatRepository.parseToDouble(creditLimit) ?: 0.0) +
+                (numberFormatRepository.parseToDouble(accountAmount) ?: 0.0)
+    }
+
+    private fun openCurrencySelection() {
+        if (!isNewAccount) return // an account's currency is fixed at creation
+        _state.update { it.copy(showCurrencySelection = true) }
+    }
+
+    private fun dismissCurrencySelection() {
+        _state.update { it.copy(showCurrencySelection = false) }
+    }
+
+    private fun selectCurrency(country: Country) {
+        if (!isNewAccount) return
+        _state.update {
+            val total = getTotalAmount(getCreditAmount().toString(), it.amount.value)
+            it.copy(
+                accountCurrency = country.currency,
+                accountCurrencyError = false,
+                showCurrencySelection = false,
+                totalAmount = getAmountValue(total, country.currency).amountString ?: "",
+            )
+        }
+    }
+
+    private fun archiveAccount() {
+        val accountId = account?.id ?: return
+        viewModelScope.launch {
+            if (archiveAccountUseCase(accountId, archived = true) is Resource.Success) {
+                discardSessionImages()
+                closePage()
+            }
+        }
+    }
 
     private fun dismissDeleteDialog() {
         _state.update { it.copy(showDeleteDialog = false) }
@@ -382,8 +470,7 @@ class AccountCreateViewModel(
     private fun showDeleteDialog() {
         val accountId = account?.id ?: return
         viewModelScope.launch {
-            // Accounts cascade-delete their transactions, so tell the user how many will go
-            // (and refuse outright for the last account) before they confirm.
+            // Refuse outright for the last account before the user confirms.
             val impact = (getAccountDeleteImpactUseCase(accountId) as? Resource.Success)?.data
             _state.update { it.copy(showDeleteDialog = true, deleteImpact = impact) }
         }
@@ -398,6 +485,10 @@ class AccountCreateViewModel(
             AccountCreateAction.ShowDeleteDialog -> showDeleteDialog()
             is AccountCreateAction.ImagePicked -> onImagePicked(action.uri)
             AccountCreateAction.RemoveImage -> removeImage()
+            AccountCreateAction.OpenCurrencySelection -> openCurrencySelection()
+            AccountCreateAction.DismissCurrencySelection -> dismissCurrencySelection()
+            is AccountCreateAction.SelectCurrency -> selectCurrency(action.country)
+            AccountCreateAction.Archive -> archiveAccount()
         }
     }
 

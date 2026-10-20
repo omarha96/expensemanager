@@ -28,12 +28,17 @@ val TransactionViewModelModule = module {
             analyticsRepository = get(),
             budgetAlertTrigger = get(),
             createRecurringTransactionUseCase = get(),
+            getAccountUiModelUseCase = get(),
+            formatAmountInCurrencyUseCase = get(),
+            getCurrentExchangeRateUseCase = get(),
         )
     }
     viewModel {
         TransactionListViewModel(
             getCurrencyUseCase = get(),
             getFormattedAmountUseCase = get(),
+            convertAmountUseCase = get(),
+            formatAmountInCurrencyUseCase = get(),
             getTransactionWithFilterUseCase = get(),
             appCoroutineDispatchers = get(),
             appComposeNavigator = get(),

@@ -209,7 +209,8 @@ fun SummaryCard(
                 letterSpacing = (-0.3).sp,
             ),
             color = tintColor,
-            maxLines = 1,
+            // Two lines: with conversion off a total lists one amount per currency.
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -336,7 +337,7 @@ private fun CompactAmountCell(
                 letterSpacing = (-0.3).sp,
             ),
             color = tintColor,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }
@@ -372,7 +373,7 @@ private fun CompactBalanceCell(
                 letterSpacing = (-0.3).sp,
             ),
             color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
         )
     }

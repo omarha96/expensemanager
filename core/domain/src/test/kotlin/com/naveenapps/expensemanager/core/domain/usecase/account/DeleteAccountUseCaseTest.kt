@@ -1,5 +1,6 @@
 package com.naveenapps.expensemanager.core.domain.usecase.account
 
+import kotlinx.coroutines.runBlocking
 import com.google.common.truth.Truth
 import com.naveenapps.expensemanager.core.model.AccountDeleteImpact
 import com.naveenapps.expensemanager.core.model.LastAccountDeletionException
@@ -30,12 +31,14 @@ class DeleteAccountUseCaseTest : BaseCoroutineTest() {
             accountRepository,
             checkAccountValidationUseCase,
         )
+        runBlocking { whenever(accountRepository.hasTransactions(any())).thenReturn(false) }
     }
 
     @Test
     fun whenAccountIsValidShouldDeleteSuccessfully() = runTest {
         whenever(accountRepository.getAccountDeleteImpact(FAKE_ACCOUNT.id))
             .thenReturn(Resource.Success(AccountDeleteImpact(transactionCount = 3, isLastAccount = false)))
+        whenever(accountRepository.hasTransactions(FAKE_ACCOUNT.id)).thenReturn(false)
         whenever(accountRepository.deleteAccount(FAKE_ACCOUNT)).thenReturn(Resource.Success(true))
 
         val response = deleteAccountUseCase.invoke(FAKE_ACCOUNT)
@@ -120,5 +123,17 @@ class DeleteAccountUseCaseTest : BaseCoroutineTest() {
         val exception = (response as Resource.Error).exception
         Truth.assertThat(exception).isNotNull()
         Truth.assertThat(exception.message).isNotEmpty()
+    }
+
+    @Test
+    fun whenAccountHasTransactionsShouldRefuseToDelete() = runTest {
+        whenever(accountRepository.hasTransactions(FAKE_ACCOUNT.id)).thenReturn(true)
+
+        val response = deleteAccountUseCase.invoke(FAKE_ACCOUNT)
+
+        Truth.assertThat(response).isInstanceOf(Resource.Error::class.java)
+        Truth.assertThat((response as Resource.Error).exception)
+            .isInstanceOf(AccountHasTransactionsException::class.java)
+        verify(accountRepository, never()).deleteAccount(any())
     }
 }

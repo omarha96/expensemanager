@@ -64,4 +64,10 @@ sealed class TransactionCreateAction {
     data class RemoveAttachment(val path: String) : TransactionCreateAction()
 
     data class SelectRepeat(val frequency: RecurringFrequency?) : TransactionCreateAction()
+
+    /** The user typed their own rate (e.g. from their exchange office). */
+    data class ChangeExchangeRate(val rateText: String) : TransactionCreateAction()
+
+    /** Go back to the fetched rate after editing it. */
+    data object UseFetchedExchangeRate : TransactionCreateAction()
 }

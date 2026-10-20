@@ -112,6 +112,7 @@ private fun BudgetDetailsScaffoldView(
                             amount = budget.amount,
                             transactionAmount = budget.transactionAmount,
                             percentage = budget.percent,
+                            otherCurrenciesExcluded = budget.otherCurrenciesExcluded,
                             modifier = Modifier
                                 .padding(16.dp)
                                 .fillMaxWidth(),

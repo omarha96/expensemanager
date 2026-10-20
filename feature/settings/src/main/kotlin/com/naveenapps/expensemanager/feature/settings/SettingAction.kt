@@ -21,6 +21,8 @@ sealed class SettingAction {
 
     data object OpenCurrencyEdit : SettingAction()
 
+    data object OpenExchangeMethod : SettingAction()
+
     data object ShowThemeSelection : SettingAction()
 
     data object DismissThemeSelection : SettingAction()
@@ -59,6 +61,10 @@ sealed class SettingAction {
     data class SubmitPassphrase(val passphrase: String) : SettingAction()
 
     data object DismissPassphrasePrompt : SettingAction()
+    data object DismissRestoreCurrency : SettingAction()
+
+    /** The currency the backup's amounts are in (needed for pre-multi-currency backups). */
+    data class ConfirmRestoreCurrency(val currencyCode: String) : SettingAction()
 
     // Security section
     data object ToggleAppLock : SettingAction()

@@ -6,6 +6,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.account.GetAllAccountsU
 import com.naveenapps.expensemanager.core.domain.usecase.category.GetAllCategoryUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.SetRestoreCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.locale.GetCurrentLocaleUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.theme.GetCurrentThemeUseCase
 import com.naveenapps.expensemanager.core.model.Account
@@ -40,6 +41,7 @@ class SettingsViewModel(
     private val appComposeNavigator: AppComposeNavigator,
     private val analyticsRepository: AnalyticsRepository,
     private val backupRepository: BackupRepository,
+    private val setRestoreCurrencyUseCase: SetRestoreCurrencyUseCase,
 ) : ViewModel() {
 
     private val _event = Channel<SettingEvent>()
@@ -131,6 +133,10 @@ class SettingsViewModel(
         appComposeNavigator.navigate(ExpenseManagerScreens.AdvancedSettingsScreen)
     }
 
+    private fun openExchangeMethodScreen() {
+        appComposeNavigator.navigate(ExpenseManagerScreens.ExchangeMethodScreen)
+    }
+
     private fun changeDefaultAccount(account: Account) {
         viewModelScope.launch {
             when (val response = settingsRepository.setDefaultAccount(account.id)) {
@@ -183,6 +189,7 @@ class SettingsViewModel(
 
             SettingAction.OpenCurrencyEdit -> openCurrencyCustomiseScreen()
 
+            SettingAction.OpenExchangeMethod -> openExchangeMethodScreen()
             SettingAction.OpenExport -> openExportScreen()
 
             SettingAction.OpenRecurringTransactions ->
@@ -280,8 +287,20 @@ class SettingsViewModel(
             }
 
             SettingAction.ConfirmRestore -> {
-                _state.update { it.copy(showRestoreConfirmation = false) }
+                // Old backups don't record their currency: ask before restoring, never guess.
+                _state.update {
+                    it.copy(showRestoreConfirmation = false, showRestoreCurrencySelection = true)
+                }
+            }
+
+            SettingAction.DismissRestoreCurrency -> {
+                _state.update { it.copy(showRestoreCurrencySelection = false) }
+            }
+
+            is SettingAction.ConfirmRestoreCurrency -> {
+                _state.update { it.copy(showRestoreCurrencySelection = false) }
                 viewModelScope.launch {
+                    setRestoreCurrencyUseCase(action.currencyCode)
                     analyticsRepository.logEvent(AnalyticsEvents.RESTORE_STARTED, emptyMap())
                     _event.send(SettingEvent.PickRestoreSource)
                 }

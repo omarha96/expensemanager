@@ -5,11 +5,13 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth
 import com.naveenapps.expensemanager.core.common.R
 import com.naveenapps.expensemanager.core.domain.usecase.account.AddAccountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.account.ArchiveAccountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.CheckAccountValidationUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.DeleteAccountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.FindAccountByIdUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.GetAccountDeleteImpactUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.UpdateAccountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.country.GetCountriesUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
@@ -21,7 +23,9 @@ import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerArgsNames
 import com.naveenapps.expensemanager.core.repository.AccountRepository
 import com.naveenapps.expensemanager.core.repository.AnalyticsRepository
+import com.naveenapps.expensemanager.core.repository.CountryRepository
 import com.naveenapps.expensemanager.core.repository.CurrencyRepository
+import com.naveenapps.expensemanager.core.repository.ExchangeRateRepository
 import com.naveenapps.expensemanager.core.repository.ImageStorageRepository
 import com.naveenapps.expensemanager.core.settings.data.repository.NumberFormatRepositoryImpl
 import com.naveenapps.expensemanager.core.settings.domain.model.NumberFormatType
@@ -30,6 +34,7 @@ import com.naveenapps.expensemanager.core.testing.FAKE_ACCOUNT
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
@@ -44,11 +49,12 @@ import org.mockito.kotlin.whenever
 class AccountCreateViewModelTest : BaseCoroutineTest() {
 
     private val accountRepository: AccountRepository = mock()
-
-    private val analyticsRepository: AnalyticsRepository = mock()
     private val currencyRepository: CurrencyRepository = mock()
+    private val countryRepository: CountryRepository = mock()
     private val appComposeNavigator: AppComposeNavigator = mock()
     private val imageStorageRepository: ImageStorageRepository = mock()
+    private val exchangeRateRepository: ExchangeRateRepository = mock()
+    private val analyticsRepository: AnalyticsRepository = mock()
 
     private val validate = CheckAccountValidationUseCase()
 
@@ -58,19 +64,20 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
     private val findAccountByIdUseCase = FindAccountByIdUseCase(accountRepository)
     private val addAccountUseCase = AddAccountUseCase(accountRepository, validate)
     private val deleteAccountUseCase = DeleteAccountUseCase(accountRepository, validate)
-    private val getAccountDeleteImpactUseCase = GetAccountDeleteImpactUseCase(accountRepository)
     private val updateAccountUseCase = UpdateAccountUseCase(accountRepository, validate)
+    private val getCountriesUseCase = GetCountriesUseCase(countryRepository)
+    private val getAccountDeleteImpactUseCase = GetAccountDeleteImpactUseCase(accountRepository)
     private val numberFormatRepository = NumberFormatRepositoryImpl(
         coroutineScope = CoroutineScope(testCoroutineDispatcher.dispatcher),
         numberFormatSettingRepository = mock {
             whenever(it.getNumberFormatType()).thenReturn(flowOf(NumberFormatType.WITHOUT_ANY_SEPARATOR))
-        },
+        }
     )
 
     private lateinit var accountCreateViewModel: AccountCreateViewModel
 
-    private val defaultCurrency = Currency("$", "US Dollars")
-    private val newCurrency = Currency("₹", "Indian Rupees")
+    private val defaultCurrency = Currency("$", "US Dollars", code = "USD")
+    private val newCurrency = Currency("₹", "Indian Rupees", code = "INR")
 
     private val currencyFlow = MutableStateFlow(newCurrency)
 
@@ -78,6 +85,14 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
         super.onCreate()
         whenever(currencyRepository.getDefaultCurrency()).thenReturn(defaultCurrency)
         whenever(currencyRepository.getSelectedCurrency()).thenReturn(currencyFlow)
+        runBlocking {
+            whenever(countryRepository.readCountries()).thenReturn(emptyList())
+            whenever(accountRepository.hasTransactions(any())).thenReturn(false)
+            whenever(accountRepository.getAccountDeleteImpact(any())).thenReturn(
+                Resource.Success(AccountDeleteImpact(transactionCount = 0, isLastAccount = false)),
+            )
+            whenever(exchangeRateRepository.isMethodChosen()).thenReturn(true)
+        }
 
         whenever(currencyRepository.getFormattedCurrency(any())).thenAnswer {
             val amount = it.arguments[0] as Amount
@@ -88,7 +103,7 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
                     "-${amountString.replace("-", "")}"
                 } else {
                     amountString
-                },
+                }
             )
         }
 
@@ -101,10 +116,14 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
             addAccountUseCase = addAccountUseCase,
             updateAccountUseCase = updateAccountUseCase,
             deleteAccountUseCase = deleteAccountUseCase,
-            getAccountDeleteImpactUseCase = getAccountDeleteImpactUseCase,
+            getCountriesUseCase = getCountriesUseCase,
+            archiveAccountUseCase = ArchiveAccountUseCase(accountRepository),
+            accountRepository = accountRepository,
             imageStorageRepository = imageStorageRepository,
             composeNavigator = appComposeNavigator,
             numberFormatRepository = numberFormatRepository,
+            exchangeRateRepository = exchangeRateRepository,
+            getAccountDeleteImpactUseCase = getAccountDeleteImpactUseCase,
             analyticsRepository = analyticsRepository,
         )
     }
@@ -202,45 +221,46 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
     }
 
     @Test
-    fun `when the amount and credit limit change it should reflect in the amount and amount background`() = runTest {
-        accountCreateViewModel.state.test {
-            val firstState = awaitItem()
-            Truth.assertThat(firstState).isNotNull()
+    fun `when the amount and credit limit change it should reflect in the amount and amount background`() =
+        runTest {
+            accountCreateViewModel.state.test {
+                val firstState = awaitItem()
+                Truth.assertThat(firstState).isNotNull()
 
-            val changedAmount = "10.0"
-            accountCreateViewModel.state.value.amount.onValueChange?.invoke(changedAmount)
+                val changedAmount = "10.0"
+                accountCreateViewModel.state.value.amount.onValueChange?.invoke(changedAmount)
 
-            val secondState = awaitItem()
-            Truth.assertThat(secondState).isNotNull()
-            Truth.assertThat(secondState.totalAmount).isNotEmpty()
-            Truth.assertThat(secondState.totalAmount)
-                .isEqualTo("${newCurrency.symbol} $changedAmount")
-            Truth.assertThat(secondState.totalAmountBackgroundColor)
-                .isEqualTo(R.color.green_500)
+                val secondState = awaitItem()
+                Truth.assertThat(secondState).isNotNull()
+                Truth.assertThat(secondState.totalAmount).isNotEmpty()
+                Truth.assertThat(secondState.totalAmount)
+                    .isEqualTo("${newCurrency.symbol} $changedAmount")
+                Truth.assertThat(secondState.totalAmountBackgroundColor)
+                    .isEqualTo(R.color.green_500)
 
-            val newNegativeAmount = "-10.0"
-            accountCreateViewModel.state.value.amount.onValueChange?.invoke(newNegativeAmount)
-            val thirdState = awaitItem()
-            Truth.assertThat(thirdState).isNotNull()
-            Truth.assertThat(thirdState.totalAmount).isNotEmpty()
-            Truth.assertThat(thirdState.totalAmount)
-                .isEqualTo("-${newCurrency.symbol} ${(newNegativeAmount.replace("-", ""))}")
-            Truth.assertThat(thirdState.totalAmountBackgroundColor).isEqualTo(R.color.red_500)
+                val newNegativeAmount = "-10.0"
+                accountCreateViewModel.state.value.amount.onValueChange?.invoke(newNegativeAmount)
+                val thirdState = awaitItem()
+                Truth.assertThat(thirdState).isNotNull()
+                Truth.assertThat(thirdState.totalAmount).isNotEmpty()
+                Truth.assertThat(thirdState.totalAmount)
+                    .isEqualTo("-${newCurrency.symbol} ${(newNegativeAmount.replace("-", ""))}")
+                Truth.assertThat(thirdState.totalAmountBackgroundColor).isEqualTo(R.color.red_500)
 
-            val creditLimitChange = "30.0"
-            val totalValueExpected = "30.0".toDouble() + newNegativeAmount.toDouble()
-            accountCreateViewModel.state.value.creditLimit.onValueChange?.invoke(
-                creditLimitChange,
-            )
-            val fourthState = awaitItem()
-            Truth.assertThat(fourthState).isNotNull()
-            Truth.assertThat(fourthState.totalAmount).isNotEmpty()
-            Truth.assertThat(fourthState.totalAmount)
-                .isEqualTo("${newCurrency.symbol} ${(totalValueExpected)}")
-            Truth.assertThat(fourthState.totalAmountBackgroundColor)
-                .isEqualTo(R.color.green_500)
+                val creditLimitChange = "30.0"
+                val totalValueExpected = "30.0".toDouble() + newNegativeAmount.toDouble()
+                accountCreateViewModel.state.value.creditLimit.onValueChange?.invoke(
+                    creditLimitChange
+                )
+                val fourthState = awaitItem()
+                Truth.assertThat(fourthState).isNotNull()
+                Truth.assertThat(fourthState.totalAmount).isNotEmpty()
+                Truth.assertThat(fourthState.totalAmount)
+                    .isEqualTo("${newCurrency.symbol} ${(totalValueExpected)}")
+                Truth.assertThat(fourthState.totalAmountBackgroundColor)
+                    .isEqualTo(R.color.green_500)
+            }
         }
-    }
 
     @Test
     fun `when the credit limit change it should reflect in the state`() = runTest {
@@ -285,17 +305,61 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
         verify(appComposeNavigator, times(1)).popBackStack()
     }
 
+
     @Test
-    fun `when account is available and call delete action it should delete and pop backstack page`() = runTest {
+    fun `when account is available and call delete action it should delete and pop backstack page`() =
+        runTest {
+
+            val accountId = "accountId"
+
+            whenever(accountRepository.findAccount(accountId)).thenReturn(
+                Resource.Success(FAKE_ACCOUNT)
+            )
+
+            whenever(accountRepository.deleteAccount(any())).thenReturn(Resource.Success(true))
+
+            accountCreateViewModel = AccountCreateViewModel(
+                savedStateHandle = SavedStateHandle(initialState = mapOf(ExpenseManagerArgsNames.ID to accountId)),
+                getCurrencyUseCase = getCurrencyUseCase,
+                getDefaultCurrencyUseCase = getDefaultCurrencyUseCase,
+                getFormattedAmountUseCase = getFormattedAmountUseCase,
+                findAccountByIdUseCase = findAccountByIdUseCase,
+                addAccountUseCase = addAccountUseCase,
+                updateAccountUseCase = updateAccountUseCase,
+                deleteAccountUseCase = deleteAccountUseCase,
+                getCountriesUseCase = getCountriesUseCase,
+                archiveAccountUseCase = ArchiveAccountUseCase(accountRepository),
+                accountRepository = accountRepository,
+                imageStorageRepository = imageStorageRepository,
+                composeNavigator = appComposeNavigator,
+                numberFormatRepository = numberFormatRepository,
+            exchangeRateRepository = exchangeRateRepository,
+            getAccountDeleteImpactUseCase = getAccountDeleteImpactUseCase,
+            analyticsRepository = analyticsRepository,
+            )
+
+            advanceUntilIdle()
+
+            accountCreateViewModel.processAction(AccountCreateAction.Delete)
+
+            advanceUntilIdle()
+
+            verify(accountRepository, times(1)).deleteAccount(eq(FAKE_ACCOUNT))
+            verify(appComposeNavigator, times(1)).popBackStack()
+        }
+
+    @Test
+    fun `new account defaults its currency to the selected app currency`() = runTest {
+        advanceUntilIdle()
+
+        Truth.assertThat(accountCreateViewModel.state.value.accountCurrency).isEqualTo(newCurrency)
+    }
+
+    @Test
+    fun `existing account without a currency shows it as not set and blocks save`() = runTest {
         val accountId = "accountId"
-
         whenever(accountRepository.findAccount(accountId)).thenReturn(
-            Resource.Success(FAKE_ACCOUNT),
-        )
-
-        whenever(accountRepository.deleteAccount(any())).thenReturn(Resource.Success(true))
-        whenever(accountRepository.getAccountDeleteImpact(any())).thenReturn(
-            Resource.Success(AccountDeleteImpact(transactionCount = 2, isLastAccount = false)),
+            Resource.Success(FAKE_ACCOUNT.copy(currencyCode = "")),
         )
 
         accountCreateViewModel = AccountCreateViewModel(
@@ -307,21 +371,26 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
             addAccountUseCase = addAccountUseCase,
             updateAccountUseCase = updateAccountUseCase,
             deleteAccountUseCase = deleteAccountUseCase,
-            getAccountDeleteImpactUseCase = getAccountDeleteImpactUseCase,
+            getCountriesUseCase = getCountriesUseCase,
+            archiveAccountUseCase = ArchiveAccountUseCase(accountRepository),
+            accountRepository = accountRepository,
             imageStorageRepository = imageStorageRepository,
             composeNavigator = appComposeNavigator,
             numberFormatRepository = numberFormatRepository,
+            exchangeRateRepository = exchangeRateRepository,
+            getAccountDeleteImpactUseCase = getAccountDeleteImpactUseCase,
             analyticsRepository = analyticsRepository,
         )
-
         advanceUntilIdle()
 
-        accountCreateViewModel.processAction(AccountCreateAction.Delete)
+        Truth.assertThat(accountCreateViewModel.state.value.accountCurrency).isNull()
 
+        accountCreateViewModel.processAction(AccountCreateAction.Save)
         advanceUntilIdle()
 
-        verify(accountRepository, times(1)).deleteAccount(eq(FAKE_ACCOUNT))
-        verify(appComposeNavigator, times(1)).popBackStack()
+        Truth.assertThat(accountCreateViewModel.state.value.accountCurrencyError).isTrue()
+        verify(accountRepository, never()).updateAccount(any())
+        verify(appComposeNavigator, never()).popBackStack()
     }
 
     private fun editViewModel(accountId: String) = AccountCreateViewModel(
@@ -333,10 +402,14 @@ class AccountCreateViewModelTest : BaseCoroutineTest() {
         addAccountUseCase = addAccountUseCase,
         updateAccountUseCase = updateAccountUseCase,
         deleteAccountUseCase = deleteAccountUseCase,
-        getAccountDeleteImpactUseCase = getAccountDeleteImpactUseCase,
+        getCountriesUseCase = getCountriesUseCase,
+        archiveAccountUseCase = ArchiveAccountUseCase(accountRepository),
+        accountRepository = accountRepository,
         imageStorageRepository = imageStorageRepository,
         composeNavigator = appComposeNavigator,
         numberFormatRepository = numberFormatRepository,
+        exchangeRateRepository = exchangeRateRepository,
+        getAccountDeleteImpactUseCase = getAccountDeleteImpactUseCase,
         analyticsRepository = analyticsRepository,
     )
 

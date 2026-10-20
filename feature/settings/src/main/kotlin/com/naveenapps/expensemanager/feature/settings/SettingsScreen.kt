@@ -82,6 +82,8 @@ import com.naveenapps.expensemanager.core.designsystem.ui.components.SettingsSec
 import com.naveenapps.expensemanager.core.designsystem.utils.ObserveAsEvents
 import com.naveenapps.expensemanager.core.model.Currency
 import com.naveenapps.expensemanager.core.repository.ShareRepository
+import com.naveenapps.expensemanager.feature.country.CountryCurrencySelectionBottomSheet
+import com.naveenapps.expensemanager.feature.country.CountrySelectionEvent
 import com.naveenapps.expensemanager.feature.language.LanguageDialogView
 import com.naveenapps.expensemanager.feature.theme.ThemeDialogView
 import kotlinx.coroutines.launch
@@ -152,6 +154,10 @@ fun SettingsScreen(
                 context.restartApp()
             }
         }
+    }
+
+    if (state.showRestoreCurrencySelection) {
+        RestoreCurrencySelection(onAction = viewModel::processAction)
     }
 
     SettingsScreenScaffoldView(
@@ -281,6 +287,13 @@ private fun SettingsScreenContent(
                     onClick = { onAction.invoke(SettingAction.OpenCurrencyEdit) },
                     title = stringResource(id = R.string.currency),
                     subtitle = "${state.currency.name} (${state.currency.symbol})",
+                    icon = Icons.Outlined.Payments,
+                    showDivider = true,
+                )
+                SettingRow(
+                    onClick = { onAction.invoke(SettingAction.OpenExchangeMethod) },
+                    title = stringResource(id = R.string.exchange_method),
+                    subtitle = stringResource(id = R.string.exchange_method_subtitle),
                     icon = Icons.Outlined.Payments,
                 )
             }
@@ -625,6 +638,24 @@ private fun BackupPassphraseDialog(
         dismissButton = {
             TextButton(onClick = onDismiss) {
                 Text(text = stringResource(id = android.R.string.cancel))
+            }
+        },
+    )
+}
+
+/**
+ * Backups made before multi-currency don't record which currency their amounts are in, so the
+ * user confirms it before the restore; newer backups carry their own currencies and ignore it.
+ */
+@Composable
+private fun RestoreCurrencySelection(onAction: (SettingAction) -> Unit) {
+    CountryCurrencySelectionBottomSheet(
+        message = stringResource(id = R.string.restore_currency_message),
+        onEvent = { event ->
+            when (event) {
+                CountrySelectionEvent.Dismiss -> onAction(SettingAction.DismissRestoreCurrency)
+                is CountrySelectionEvent.CountrySelected ->
+                    onAction(SettingAction.ConfirmRestoreCurrency(event.country.currency.code))
             }
         },
     )

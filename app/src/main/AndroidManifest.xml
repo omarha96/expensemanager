@@ -42,6 +42,17 @@
             android:name="google_analytics_adid_collection_enabled"
             android:value="false" />
 
+        <!-- Firebase data collection, switchable per build (expensemanager.disableTelemetry). -->
+        <meta-data
+            android:name="firebase_analytics_collection_deactivated"
+            android:value="${firebaseAnalyticsDeactivated}" />
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="${firebaseCrashlyticsEnabled}" />
+        <meta-data
+            android:name="firebase_data_collection_default_enabled"
+            android:value="${firebaseDataCollectionEnabled}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

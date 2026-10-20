@@ -30,6 +30,8 @@ data class SettingState(
     val isBackupInProgress: Boolean = false,
     // Non-null while the backup/restore passphrase dialog is showing.
     val passphrasePrompt: PassphrasePrompt? = null,
+    /** Asking which currency a backup is in, before restoring it. */
+    val showRestoreCurrencySelection: Boolean = false,
 )
 
 enum class PassphrasePrompt {

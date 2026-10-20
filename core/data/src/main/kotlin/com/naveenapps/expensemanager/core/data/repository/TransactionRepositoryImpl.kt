@@ -44,53 +44,65 @@ class TransactionRepositoryImpl(
         }
     }
 
-    override suspend fun addTransaction(transaction: Transaction): Resource<Boolean> = withContext(dispatchers.io) {
-        return@withContext try {
-            val response = transactionDao.insertTransaction(
-                transaction.toEntityModel(),
-                if (transaction.type == TransactionType.INCOME) {
-                    transaction.amount.amount
-                } else {
-                    transaction.amount.amount * -1
-                },
-                transaction.type.isTransfer(),
-                transaction.attachments,
-            )
-            Resource.Success(response != -1L)
-        } catch (exception: Exception) {
-            Resource.Error(exception)
+    override suspend fun addTransaction(transaction: Transaction): Resource<Boolean> =
+        withContext(dispatchers.io) {
+            return@withContext try {
+                val response = transactionDao.insertTransaction(
+                    transaction.toEntityModel(),
+                    if (transaction.type == TransactionType.INCOME) {
+                        transaction.amount.amount
+                    } else {
+                        transaction.amount.amount * -1
+                    },
+                    transaction.type.isTransfer(),
+                    transaction.attachments,
+                    transaction.rateSnapshot?.toEntityModel(),
+                )
+                Resource.Success(response != -1L)
+            } catch (exception: Exception) {
+                Resource.Error(exception)
+            }
         }
-    }
 
-    override suspend fun updateTransaction(transaction: Transaction): Resource<Boolean> = withContext(dispatchers.io) {
-        return@withContext try {
-            val transactionEntity = transaction.toEntityModel()
-            // Reversal of the old amount happens inside this DAO transaction.
-            transactionDao.updateTransaction(
-                transactionEntity,
-                if (transaction.type.isIncome()) {
-                    transaction.amount.amount
-                } else {
-                    transaction.amount.amount * -1
-                },
-                transaction.type.isTransfer(),
-                transaction.attachments,
-            )
-            Resource.Success(true)
-        } catch (exception: Exception) {
-            Resource.Error(exception)
+    override suspend fun updateTransaction(transaction: Transaction): Resource<Boolean> =
+        withContext(dispatchers.io) {
+            return@withContext try {
+                val transactionEntity = transaction.toEntityModel()
+                // Reversal of the old amount happens inside this DAO transaction.
+                transactionDao.updateTransaction(
+                    transactionEntity,
+                    if (transaction.type.isIncome()) {
+                        transaction.amount.amount
+                    } else {
+                        transaction.amount.amount * -1
+                    },
+                    transaction.type.isTransfer(),
+                    transaction.attachments,
+                    transaction.rateSnapshot?.takeIf { it.id != previousSnapshotId(transaction) }
+                        ?.toEntityModel(),
+                )
+                transactionDao.deleteUnreferencedRateSnapshots()
+                Resource.Success(true)
+            } catch (exception: Exception) {
+                Resource.Error(exception)
+            }
         }
-    }
 
-    override suspend fun deleteTransaction(transaction: Transaction): Resource<Boolean> = withContext(dispatchers.io) {
-        return@withContext try {
-            val transactionEntity = transaction.toEntityModel()
-            val response = transactionDao.deleteTransaction(transactionEntity)
-            Resource.Success(response > 0)
-        } catch (exception: Exception) {
-            Resource.Error(exception)
+    /** A snapshot already stored (unchanged on edit) must not be inserted again. */
+    private suspend fun previousSnapshotId(transaction: Transaction): String? =
+        transactionDao.findById(transaction.id)?.rateSnapshotId
+
+    override suspend fun deleteTransaction(transaction: Transaction): Resource<Boolean> =
+        withContext(dispatchers.io) {
+            return@withContext try {
+                val transactionEntity = transaction.toEntityModel()
+                val response = transactionDao.deleteTransaction(transactionEntity)
+                transactionDao.deleteUnreferencedRateSnapshots()
+                Resource.Success(response > 0)
+            } catch (exception: Exception) {
+                Resource.Error(exception)
+            }
         }
-    }
 
     private fun convertTransactionAndCategory(
         transactionWithCategory: List<TransactionRelation>?,
@@ -108,7 +120,9 @@ class TransactionRepositoryImpl(
     }
 
     private fun convertTransactionCategoryRelation(relation: TransactionRelation): Transaction? {
-        return relation.transactionEntity.toDomainModel().apply {
+        return relation.transactionEntity.toDomainModel().copy(
+            rateSnapshot = relation.rateSnapshotEntity?.toDomainModel(),
+        ).apply {
             category = relation.categoryEntity?.toDomainModel() ?: return null
             fromAccount = relation.fromAccountEntity?.toDomainModel() ?: return null
             toAccount = relation.toAccountEntity?.toDomainModel()
@@ -117,7 +131,10 @@ class TransactionRepositoryImpl(
     }
 
     private suspend fun convertTransactionCategoryRelation(relation: TransactionEntity): Transaction {
-        val transaction = relation.toDomainModel()
+        val transaction = relation.toDomainModel().copy(
+            rateSnapshot = relation.rateSnapshotId?.let { transactionDao.findRateSnapshot(it) }
+                ?.toDomainModel(),
+        )
         categoryDao.findById(transaction.categoryId)?.let {
             transaction.category = it.toDomainModel()
         }

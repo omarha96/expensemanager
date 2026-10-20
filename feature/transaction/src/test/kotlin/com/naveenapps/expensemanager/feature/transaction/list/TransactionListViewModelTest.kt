@@ -1,5 +1,9 @@
 package com.naveenapps.expensemanager.feature.transaction.list
 
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertedTotal
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
+import kotlinx.coroutines.runBlocking
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import com.naveenapps.expensemanager.core.common.utils.AppCoroutineDispatchers
@@ -38,6 +42,8 @@ class TransactionListViewModelTest : BaseCoroutineTest() {
     private val deleteTransactionUseCase: DeleteTransactionUseCase = mock()
     private val addTransactionUseCase: AddTransactionUseCase = mock()
     private val imageStorageRepository: ImageStorageRepository = mock()
+    private val convertAmountUseCase: ConvertAmountUseCase = mock()
+    private val formatAmountInCurrencyUseCase: FormatAmountInCurrencyUseCase = mock()
     private val navigator: AppComposeNavigator = mock()
 
     private val groceries = FAKE_EXPENSE_TRANSACTION.copy(
@@ -55,11 +61,18 @@ class TransactionListViewModelTest : BaseCoroutineTest() {
 
     private fun viewModel(transactions: List<Transaction> = listOf(groceries, rent)): TransactionListViewModel {
         whenever(getCurrencyUseCase.invoke()).thenReturn(flowOf(Currency("$", "USD")))
-        whenever(getFormattedAmountUseCase.invoke(any(), any())).thenReturn(Amount(0.0, "$0"))
+        whenever(getFormattedAmountUseCase.invoke(any<Double>(), any<Currency>())).thenReturn(Amount(0.0, "$0"))
+        whenever(getFormattedAmountUseCase.invoke(any<ConvertedTotal>(), any<Currency>())).thenReturn(Amount(0.0, "$0"))
+        runBlocking {
+            whenever(convertAmountUseCase.total(any(), any())).thenReturn(ConvertedTotal(value = 0.0))
+            whenever(formatAmountInCurrencyUseCase.invoke(any(), any())).thenReturn(Amount(0.0, "$0"))
+        }
         whenever(getTransactionWithFilterUseCase.invoke()).thenReturn(flowOf(transactions))
         return TransactionListViewModel(
             getCurrencyUseCase = getCurrencyUseCase,
             getFormattedAmountUseCase = getFormattedAmountUseCase,
+            convertAmountUseCase = convertAmountUseCase,
+            formatAmountInCurrencyUseCase = formatAmountInCurrencyUseCase,
             getTransactionWithFilterUseCase = getTransactionWithFilterUseCase,
             appCoroutineDispatchers = AppCoroutineDispatchers(
                 testCoroutineDispatcher.dispatcher,
