@@ -70,4 +70,6 @@ sealed class TransactionCreateAction {
 
     /** Go back to the fetched rate after editing it. */
     data object UseFetchedExchangeRate : TransactionCreateAction()
+    /** Opens the rule ("series") this transaction was logged by. */
+    data object OpenRecurringSeries : TransactionCreateAction()
 }

@@ -1,8 +1,8 @@
 package com.naveenapps.expensemanager.feature.dashboard
 
 import androidx.compose.runtime.Stable
-import com.naveenapps.expensemanager.core.domain.usecase.budget.BudgetUiModel
 import com.naveenapps.expensemanager.core.model.AccountUiModel
+import com.naveenapps.expensemanager.core.model.AutoBackupError
 import com.naveenapps.expensemanager.core.model.CategoryTransactionState
 import com.naveenapps.expensemanager.core.model.ExpenseFlowState
 import com.naveenapps.expensemanager.core.model.TransactionUiItem
@@ -12,11 +12,10 @@ data class DashboardState(
     val transactionPeriod: String,
     val expenseFlowState: ExpenseFlowState,
     val transactions: List<TransactionUiItem>,
-    val budgets: List<BudgetUiModel>,
+    val homeBudgets: HomeBudgets = HomeBudgets(),
     val accounts: List<AccountUiModel>,
     val categoryTransactionState: CategoryTransactionState,
     val isCompactSummary: Boolean = false,
-    val showCreateBudgetForMonth: String? = null,
     /**
      * False only for a brand-new user who has never saved a transaction. Defaults to true so
      * the first-run card never flashes up for existing users while the count loads.
@@ -29,6 +28,8 @@ data class DashboardState(
     val isGettingStartedDismissed: Boolean = true,
     /** How the summary totals treated amounts in other currencies, or null if there were none. */
     val conversionNote: ConversionNote? = null,
+    /** Set while automatic backups are failing and the warning isn't snoozed. */
+    val backupWarning: AutoBackupError? = null,
 )
 
 enum class ConversionNote {

@@ -39,6 +39,8 @@ data class TransactionCreateState(
     val repeat: RecurringFrequency? = null,
     /** Only new transactions can be made recurring; editing one never changes a rule. */
     val canRepeat: Boolean = true,
+    /** Set when editing a transaction a recurring rule logged and that rule still exists. */
+    val recurringRuleId: String? = null,
     /** "Discard changes?" confirmation, shown when leaving a form with unsaved edits. */
     val showDiscardDialog: Boolean = false,
     /** Present only for a transfer between accounts in different currencies. */

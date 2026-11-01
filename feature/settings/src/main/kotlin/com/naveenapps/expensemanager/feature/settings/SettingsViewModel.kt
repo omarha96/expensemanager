@@ -6,7 +6,6 @@ import com.naveenapps.expensemanager.core.domain.usecase.account.GetAllAccountsU
 import com.naveenapps.expensemanager.core.domain.usecase.category.GetAllCategoryUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
-import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.SetRestoreCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.locale.GetCurrentLocaleUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.theme.GetCurrentThemeUseCase
 import com.naveenapps.expensemanager.core.model.Account
@@ -17,8 +16,7 @@ import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerScreens
 import com.naveenapps.expensemanager.core.repository.AnalyticsEvents
 import com.naveenapps.expensemanager.core.repository.AnalyticsRepository
-import com.naveenapps.expensemanager.core.repository.BackupException
-import com.naveenapps.expensemanager.core.repository.BackupRepository
+import com.naveenapps.expensemanager.core.repository.DemoDataRepository
 import com.naveenapps.expensemanager.core.repository.SettingsRepository
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,8 +38,8 @@ class SettingsViewModel(
     private val settingsRepository: SettingsRepository,
     private val appComposeNavigator: AppComposeNavigator,
     private val analyticsRepository: AnalyticsRepository,
-    private val backupRepository: BackupRepository,
-    private val setRestoreCurrencyUseCase: SetRestoreCurrencyUseCase,
+    /** Null in release builds, which hides the debug-only "Load demo data" option. */
+    private val demoDataRepository: DemoDataRepository? = null,
 ) : ViewModel() {
 
     private val _event = Channel<SettingEvent>()
@@ -52,6 +50,7 @@ class SettingsViewModel(
             currency = getDefaultCurrencyUseCase.invoke(),
             theme = null,
             showThemeSelection = false,
+            isDemoDataAvailable = demoDataRepository != null,
         ),
     )
     val state = _state.asStateFlow()
@@ -76,6 +75,10 @@ class SettingsViewModel(
 
         settingsRepository.isAppLockEnabled().onEach { enabled ->
             _state.update { it.copy(isAppLockEnabled = enabled) }
+        }.launchIn(viewModelScope)
+
+        settingsRepository.isScreenshotBlocked().onEach { blocked ->
+            _state.update { it.copy(isScreenshotBlocked = blocked) }
         }.launchIn(viewModelScope)
 
         getAllAccountsUseCase.invoke().onEach { accounts ->
@@ -179,8 +182,28 @@ class SettingsViewModel(
         }
     }
 
+    private fun loadDemoData() {
+        val repository = demoDataRepository ?: return
+        _state.update { it.copy(showDemoDataConfirmation = false, isDemoDataLoading = true) }
+        viewModelScope.launch {
+            val result = repository.loadDemoData()
+            _state.update { it.copy(isDemoDataLoading = false) }
+            _event.send(
+                SettingEvent.ShowMessage(
+                    if (result.isSuccess) R.string.demo_data_loaded else R.string.demo_data_failed,
+                ),
+            )
+        }
+    }
+
     fun processAction(action: SettingAction) {
         when (action) {
+            SettingAction.LoadDemoData -> _state.update { it.copy(showDemoDataConfirmation = true) }
+
+            SettingAction.ConfirmDemoData -> loadDemoData()
+
+            SettingAction.DismissDemoData -> _state.update { it.copy(showDemoDataConfirmation = false) }
+
             SettingAction.ClosePage -> closePage()
 
             SettingAction.OpenAboutUs -> openAboutUs()
@@ -194,6 +217,10 @@ class SettingsViewModel(
 
             SettingAction.OpenRecurringTransactions ->
                 appComposeNavigator.navigate(ExpenseManagerScreens.RecurringTransactions)
+
+            SettingAction.OpenBackup -> appComposeNavigator.navigate(ExpenseManagerScreens.AutoBackupScreen)
+
+            SettingAction.OpenRestore -> appComposeNavigator.navigate(ExpenseManagerScreens.RestoreScreen)
 
             SettingAction.OpenNotification -> openNotificationScreen()
 
@@ -249,149 +276,12 @@ class SettingsViewModel(
                 }
             }
 
-            SettingAction.Backup -> {
-                if (_state.value.isBackupInProgress) return
-                // Ask for an optional passphrase first, then pick where to save.
-                _state.update { it.copy(passphrasePrompt = PassphrasePrompt.BACKUP) }
-            }
-
-            is SettingAction.SubmitPassphrase -> submitPassphrase(action.passphrase)
-
-            SettingAction.DismissPassphrasePrompt -> {
-                backupPassphrase = null
-                pendingRestoreUri = null
-                _state.update { it.copy(passphrasePrompt = null) }
-            }
-
-            is SettingAction.BackupDestinationSelected -> {
-                val passphrase = backupPassphrase
-                backupPassphrase = null
-                val uri = action.uri ?: return
-                runBackupTask(
-                    task = { backupRepository.backupData(uri, passphrase) },
-                    onSuccess = {
-                        analyticsRepository.logEvent(AnalyticsEvents.BACKUP_COMPLETED, emptyMap())
-                        _event.send(SettingEvent.ShowMessage(R.string.backup_success))
-                    },
-                    onFailure = { R.string.backup_failed },
-                )
-            }
-
-            SettingAction.Restore -> {
-                if (_state.value.isBackupInProgress) return
-                _state.update { it.copy(showRestoreConfirmation = true) }
-            }
-
-            SettingAction.DismissRestoreConfirmation -> {
-                _state.update { it.copy(showRestoreConfirmation = false) }
-            }
-
-            SettingAction.ConfirmRestore -> {
-                // Old backups don't record their currency: ask before restoring, never guess.
-                _state.update {
-                    it.copy(showRestoreConfirmation = false, showRestoreCurrencySelection = true)
-                }
-            }
-
-            SettingAction.DismissRestoreCurrency -> {
-                _state.update { it.copy(showRestoreCurrencySelection = false) }
-            }
-
-            is SettingAction.ConfirmRestoreCurrency -> {
-                _state.update { it.copy(showRestoreCurrencySelection = false) }
+            SettingAction.ToggleScreenshotBlock -> {
                 viewModelScope.launch {
-                    setRestoreCurrencyUseCase(action.currencyCode)
-                    analyticsRepository.logEvent(AnalyticsEvents.RESTORE_STARTED, emptyMap())
-                    _event.send(SettingEvent.PickRestoreSource)
+                    val newValue = !_state.value.isScreenshotBlocked
+                    settingsRepository.setScreenshotBlocked(newValue)
+                    _state.update { it.copy(isScreenshotBlocked = newValue) }
                 }
-            }
-
-            is SettingAction.RestoreSourceSelected -> {
-                val uri = action.uri ?: return
-                restore(uri, passphrase = null)
-            }
-        }
-    }
-
-    // Held between the passphrase dialog and the system file picker, never persisted.
-    private var backupPassphrase: String? = null
-    private var pendingRestoreUri: String? = null
-
-    private fun submitPassphrase(passphrase: String) {
-        when (_state.value.passphrasePrompt) {
-            PassphrasePrompt.BACKUP -> {
-                backupPassphrase = passphrase.ifEmpty { null }
-                _state.update { it.copy(passphrasePrompt = null) }
-                viewModelScope.launch {
-                    analyticsRepository.logEvent(AnalyticsEvents.BACKUP_STARTED, emptyMap())
-                    _event.send(SettingEvent.PickBackupDestination(backupRepository.backupFileName()))
-                }
-            }
-
-            PassphrasePrompt.RESTORE -> {
-                val uri = pendingRestoreUri ?: return
-                if (passphrase.isEmpty()) return
-                _state.update { it.copy(passphrasePrompt = null) }
-                restore(uri, passphrase)
-            }
-
-            null -> Unit
-        }
-    }
-
-    private fun restore(uri: String, passphrase: String?) {
-        runBackupTask(
-            task = { backupRepository.restoreData(uri, passphrase) },
-            onSuccess = {
-                pendingRestoreUri = null
-                analyticsRepository.logEvent(AnalyticsEvents.RESTORE_COMPLETED, emptyMap())
-                _event.send(SettingEvent.RestartApp)
-            },
-            onFailure = { reason ->
-                when (reason) {
-                    // Protected backup: ask for the passphrase and retry with the same file.
-                    BackupException.Reason.PASSPHRASE_REQUIRED -> {
-                        pendingRestoreUri = uri
-                        _state.update { it.copy(passphrasePrompt = PassphrasePrompt.RESTORE) }
-                        null
-                    }
-
-                    BackupException.Reason.WRONG_PASSPHRASE -> {
-                        pendingRestoreUri = uri
-                        _state.update { it.copy(passphrasePrompt = PassphrasePrompt.RESTORE) }
-                        R.string.restore_wrong_passphrase
-                    }
-
-                    BackupException.Reason.INVALID_FILE -> R.string.restore_invalid_file
-
-                    BackupException.Reason.NEWER_VERSION -> R.string.restore_newer_version
-
-                    else -> R.string.restore_failed
-                }
-            },
-        )
-    }
-
-    private fun runBackupTask(
-        task: suspend () -> Resource<Boolean>,
-        onSuccess: suspend () -> Unit,
-        /** Handles a failure; returns the message to show, or null for none. */
-        onFailure: (BackupException.Reason?) -> Int?,
-    ) {
-        if (_state.value.isBackupInProgress) return
-        _state.update { it.copy(isBackupInProgress = true) }
-        viewModelScope.launch {
-            try {
-                when (val result = task()) {
-                    is Resource.Success -> onSuccess()
-
-                    is Resource.Error -> {
-                        val reason = (result.exception as? BackupException)?.reason
-                        onFailure(reason)?.let { _event.send(SettingEvent.ShowMessage(it)) }
-                    }
-                }
-            } finally {
-                _state.update { it.copy(isBackupInProgress = false) }
             }
         }
     }

@@ -15,7 +15,6 @@
     <string name="transaction_create_message">"Adicione aqui as suas despesas, receitas e transferências. "</string>
     <string name="help"><![CDATA[Ajuda e informações]]></string>
     <string name="ok">OK</string>
-    <string name="no_budget_for_month">Sem %1$s</string>
     <string name="tap_to_set_spending_limit">Toque para definir um limite de gastos</string>
     <string name="first_expense_action">Adicionar despesa</string>
     <string name="getting_started_title">Primeiros passos</string>
@@ -33,4 +32,11 @@
     <string name="step_currency_title">Escolha sua moeda</string>
     <string name="step_currency_description">Os valores são exibidos nesta moeda</string>
     <string name="step_currency_action">Alterar moeda</string>
+    <string name="auto_backup_warning_title">O backup automático não está funcionando</string>
+    <string name="auto_backup_warning_folder">Não foi possível acessar a pasta de backup. Escolha-a novamente para manter seus dados seguros.</string>
+    <string name="auto_backup_warning_write">Os últimos backups falharam. Verifique as configurações para manter seus dados seguros.</string>
+    <string name="auto_backup_warning_later">Depois</string>
+    <string name="auto_backup_warning_fix">Corrigir</string>
+    <string name="home_budget_none">Ainda não há orçamento para %1$s</string>
+    <string name="home_budget_create">Definir orçamento</string>
 </resources>

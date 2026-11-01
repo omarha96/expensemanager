@@ -60,6 +60,13 @@ sealed class ExpenseManagerScreens {
     @Serializable
     data object RecurringTransactions : ExpenseManagerScreens()
 
+    /** The Backup page: back up now, folder, automatic backup and recent backups. */
+    @Serializable
+    data object AutoBackupScreen : ExpenseManagerScreens()
+
+    @Serializable
+    data object RestoreScreen : ExpenseManagerScreens()
+
     @Serializable
     data class AccountCreate(val id: String?) : ExpenseManagerScreens()
 
@@ -69,16 +76,27 @@ sealed class ExpenseManagerScreens {
     @Serializable
     data class CategoryDetails(val id: String?) : ExpenseManagerScreens()
 
+    /** [period] (a BudgetPeriod name) preselects Monthly or Annual for a new budget. */
     @Serializable
-    data class BudgetCreate(val id: String?) : ExpenseManagerScreens()
+    data class BudgetCreate(val id: String?, val period: String? = null) : ExpenseManagerScreens()
 
     @Serializable
     data class BudgetDetails(val id: String?) : ExpenseManagerScreens()
 
+    /**
+     * [repeat] pre-selects a repeat frequency (a RecurringFrequency name) for a new transaction,
+     * e.g. when adding from the recurring transactions screen. Ignored when editing ([id] set).
+     */
     @Serializable
-    data class TransactionCreate(val id: String?) : ExpenseManagerScreens()
+    data class TransactionCreate(val id: String?, val repeat: String? = null) : ExpenseManagerScreens()
+
+    /** Edits a repeating transaction rule (the parent of every future occurrence). */
+    @Serializable
+    data class RecurringTransactionEdit(val id: String) : ExpenseManagerScreens()
 }
 
 object ExpenseManagerArgsNames {
     const val ID: String = "id"
+    const val REPEAT: String = "repeat"
+    const val PERIOD: String = "period"
 }

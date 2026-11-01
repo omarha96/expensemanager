@@ -62,6 +62,11 @@ class BudgetCreateViewModel(
     private val _state = MutableStateFlow(
         BudgetCreateState(
             isLoading = true,
+            name = TextFieldValue(
+                value = "",
+                valueError = false,
+                onValueChange = this::setNameChange,
+            ),
             amount = TextFieldValue(
                 value = "",
                 valueError = false,
@@ -105,6 +110,10 @@ class BudgetCreateViewModel(
             }
         }
 
+        // A new budget opened from Home's Annual tab starts as annual.
+        savedStateHandle.get<String>(ExpenseManagerArgsNames.PERIOD)
+            ?.let { name -> BudgetPeriod.entries.find { it.name == name } }
+            ?.let { period -> _state.update { it.copy(periodType = period) } }
         readBudgetInfo(savedStateHandle.get<String>(ExpenseManagerArgsNames.ID))
     }
 
@@ -124,20 +133,12 @@ class BudgetCreateViewModel(
             }
         }.filterNotNull()
 
-        if (accounts.isNotEmpty()) {
-            setAccounts(accounts, budget.isAllAccountsSelected)
-        }
-
         val categories = budget.categories.map {
             return@map when (val response = findCategoryByIdUseCase.invoke(it)) {
                 is Resource.Error -> null
                 is Resource.Success -> response.data
             }
         }.filterNotNull()
-
-        if (categories.isNotEmpty()) {
-            setCategories(categories, budget.isAllAccountsSelected)
-        }
 
         val loadedDate = if (budget.periodType == BudgetPeriod.YEARLY) {
             budget.selectedMonth.fromYear()
@@ -152,13 +153,17 @@ class BudgetCreateViewModel(
                 isLoading = false,
                 currency = budgetCurrency,
                 isCurrencyLocked = true,
+                name = state.name.copy(value = budget.name.orEmpty()),
                 amount = state.amount.copy(value = numberFormatRepository.formatForEditing(budget.amount)),
                 month = state.month.copy(value = loadedDate),
                 periodType = budget.periodType,
+                // The saved selections. They used to be loaded and then wiped by emptyList()
+                // here (and categories took the accounts' "all" flag), so editing a budget
+                // forgot which categories and accounts it covered.
                 isAllAccountSelected = budget.isAllAccountsSelected,
-                selectedAccounts = emptyList(),
+                selectedAccounts = accounts,
                 isAllCategorySelected = budget.isAllCategoriesSelected,
-                selectedCategories = emptyList(),
+                selectedCategories = categories,
                 showDeleteButton = true,
             )
         }
@@ -216,6 +221,7 @@ class BudgetCreateViewModel(
         val periodType = _state.value.periodType
         val budget = Budget(
             id = budget?.id ?: UUID.randomUUID().toString(),
+            name = _state.value.name.value.trim().ifEmpty { null },
             amount = amount ?: 0.0,
             selectedMonth = if (periodType == BudgetPeriod.YEARLY) {
                 date.toYear()
@@ -227,7 +233,8 @@ class BudgetCreateViewModel(
             accounts = accounts,
             isAllCategoriesSelected = _state.value.isAllCategorySelected,
             isAllAccountsSelected = _state.value.isAllAccountSelected,
-            createdOn = Calendar.getInstance().time,
+            // Editing keeps the original creation date.
+            createdOn = this.budget?.createdOn ?: Calendar.getInstance().time,
             updatedOn = Calendar.getInstance().time,
             currencyCode = _state.value.currency.code,
         )
@@ -262,6 +269,10 @@ class BudgetCreateViewModel(
                 ),
             )
         }
+    }
+
+    private fun setNameChange(name: String) {
+        _state.update { it.copy(name = it.name.copy(value = name.take(MAX_NAME_LENGTH))) }
     }
 
     private fun setDateChange(date: Date) {
@@ -400,5 +411,6 @@ class BudgetCreateViewModel(
     companion object {
         private const val DEFAULT_COLOR = "#43A546"
         private const val DEFAULT_ICON = "account_balance"
+        private const val MAX_NAME_LENGTH = 40
     }
 }

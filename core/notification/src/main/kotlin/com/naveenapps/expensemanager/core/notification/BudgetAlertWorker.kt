@@ -56,10 +56,10 @@ class BudgetAlertWorker(
                 val spent = budget.transactionAmount.amountString.orEmpty()
                 val limit = budget.amount.amountString.orEmpty()
                 val (title, body) = if (threshold == OVER_PERCENT) {
-                    context.getString(R.string.budget_alert_over_title, budget.name) to
+                    context.getString(R.string.budget_alert_over_title, budget.title) to
                         context.getString(R.string.budget_alert_over_body, spent, limit)
                 } else {
-                    context.getString(R.string.budget_alert_warning_title, budget.name) to
+                    context.getString(R.string.budget_alert_warning_title, budget.title) to
                         context.getString(R.string.budget_alert_warning_body, spent, limit)
                 }
 

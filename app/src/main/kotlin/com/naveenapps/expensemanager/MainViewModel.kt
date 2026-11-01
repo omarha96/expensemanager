@@ -36,6 +36,9 @@ class MainViewModel(
     private val _isAppLockEnabled = MutableStateFlow(false)
     val isAppLockEnabled = _isAppLockEnabled.asStateFlow()
 
+    private val _isScreenshotBlocked = MutableStateFlow(false)
+    val isScreenshotBlocked = _isScreenshotBlocked.asStateFlow()
+
     private val _isAuthenticated = MutableStateFlow(false)
     val isAuthenticated = _isAuthenticated.asStateFlow()
 
@@ -54,6 +57,10 @@ class MainViewModel(
         settingsRepository.isAppLockEnabled().onEach {
             _isAppLockEnabled.value = it
         }.launchIn(viewModelScope)
+
+        settingsRepository.isScreenshotBlocked().onEach {
+            _isScreenshotBlocked.value = it
+        }.launchIn(viewModelScope)
     }
 
     // Set when the app was opened from a quick-add entry point; MainScreen opens the keypad
@@ -67,6 +74,18 @@ class MainViewModel(
 
     fun onQuickAddHandled() {
         _pendingQuickAdd.value = false
+    }
+
+    // Set when opened from the "automatic backup failed" notification; handled like quick add.
+    private val _pendingOpenAutoBackup = MutableStateFlow(false)
+    val pendingOpenAutoBackup = _pendingOpenAutoBackup.asStateFlow()
+
+    fun requestOpenAutoBackup() {
+        _pendingOpenAutoBackup.value = true
+    }
+
+    fun onOpenAutoBackupHandled() {
+        _pendingOpenAutoBackup.value = false
     }
 
     fun onAuthenticationSuccess() {

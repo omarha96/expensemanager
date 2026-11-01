@@ -3,15 +3,20 @@ package com.naveenapps.expensemanager.feature.category.selection
 import app.cash.turbine.test
 import com.google.common.truth.Truth
 import com.naveenapps.expensemanager.core.domain.usecase.category.GetAllCategoryUseCase
+import com.naveenapps.expensemanager.core.model.CategoryType
 import com.naveenapps.expensemanager.core.repository.CategoryRepository
 import com.naveenapps.expensemanager.core.testing.BaseCoroutineTest
+import com.naveenapps.expensemanager.core.testing.FAKE_CATEGORY
 import com.naveenapps.expensemanager.feature.category.list.getRandomCategoryData
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class CategorySelectionViewModelTest : BaseCoroutineTest() {
 
     private val repository: CategoryRepository = mock()
@@ -111,6 +116,39 @@ class CategorySelectionViewModelTest : BaseCoroutineTest() {
             Truth.assertThat(firstItem).hasSize(5)
 
             categorySelectionViewModel.selectAllThisCategory(emptyList())
+        }
+    }
+
+    @Test
+    fun incomeCategoriesAreListedBeforeExpenseCategories() = runTest {
+        val rent = FAKE_CATEGORY.copy(id = "rent", name = "Rent", type = CategoryType.EXPENSE)
+        val salary = FAKE_CATEGORY.copy(id = "salary", name = "Salary", type = CategoryType.INCOME)
+        val food = FAKE_CATEGORY.copy(id = "food", name = "Food", type = CategoryType.EXPENSE)
+        val bonus = FAKE_CATEGORY.copy(id = "bonus", name = "Bonus", type = CategoryType.INCOME)
+        whenever(repository.getCategories()).thenReturn(flowOf(listOf(rent, salary, food, bonus)))
+
+        val viewModel = CategorySelectionViewModel(getCategoriesUseCase)
+        // The list starts empty and is filled once the categories load on the test dispatcher.
+        advanceUntilIdle()
+
+        // Income first, then expense; each group stays alphabetical (the use case sorts by name).
+        Truth.assertThat(viewModel.categories.value.map { it.id })
+            .containsExactly("bonus", "salary", "food", "rent")
+            .inOrder()
+    }
+
+    @Test
+    fun selectAllForListedItemsLeavesOtherSelectionsAlone() = runTest {
+        categorySelectionViewModel.selectedCategories.test {
+            val all = awaitItem()
+            Truth.assertThat(all).hasSize(5)
+
+            // Untick the first two (e.g. what a search shows), then tick them again.
+            categorySelectionViewModel.setSelection(all.take(2), false)
+            Truth.assertThat(awaitItem().map { it.id }).containsExactlyElementsIn(all.drop(2).map { it.id })
+
+            categorySelectionViewModel.setSelection(all.take(2), true)
+            Truth.assertThat(awaitItem().map { it.id }).containsExactlyElementsIn(all.map { it.id })
         }
     }
 }

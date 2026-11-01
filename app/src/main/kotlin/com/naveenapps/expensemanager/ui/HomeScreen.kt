@@ -8,11 +8,8 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material3.FabPosition
@@ -22,8 +19,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -31,7 +26,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -42,7 +36,7 @@ import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.naveenapps.expensemanager.core.designsystem.ui.components.DockedFabCutoutShape
+import com.naveenapps.expensemanager.core.designsystem.ui.components.SingleLineText
 import com.naveenapps.expensemanager.core.designsystem.utils.BackHandler
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerScreens
 import com.naveenapps.expensemanager.core.repository.ActivityComponentProvider
@@ -66,12 +60,15 @@ import com.naveenapps.expensemanager.feature.onboarding.into.IntroScreen
 import com.naveenapps.expensemanager.feature.reminder.ReminderScreen
 import com.naveenapps.expensemanager.feature.settings.SettingsScreen
 import com.naveenapps.expensemanager.feature.settings.advanced.AdvancedSettingsScreen
+import com.naveenapps.expensemanager.feature.settings.autobackup.AutoBackupScreen
+import com.naveenapps.expensemanager.feature.settings.restore.RestoreScreen
 import com.naveenapps.expensemanager.feature.transaction.R as TransactionR
 import com.naveenapps.expensemanager.feature.settings.currencyapi.CurrencyApiProfileScreen
 import com.naveenapps.expensemanager.feature.settings.exchangemethod.ExchangeMethodScreen
 import com.naveenapps.expensemanager.feature.transaction.create.TransactionCreateScreen
 import com.naveenapps.expensemanager.feature.transaction.list.TransactionListScreen
 import com.naveenapps.expensemanager.feature.transaction.recurring.RecurringTransactionsScreen
+import com.naveenapps.expensemanager.feature.transaction.recurring.edit.RecurringTransactionEditScreen
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
@@ -109,8 +106,17 @@ fun NavGraphBuilder.expenseManagerNavigation(
     composable<ExpenseManagerScreens.CategoryDetails> {
         CategoryDetailScreen()
     }
+    composable<ExpenseManagerScreens.AutoBackupScreen> {
+        AutoBackupScreen()
+    }
+    composable<ExpenseManagerScreens.RestoreScreen> {
+        RestoreScreen()
+    }
     composable<ExpenseManagerScreens.RecurringTransactions> {
         RecurringTransactionsScreen()
+    }
+    composable<ExpenseManagerScreens.RecurringTransactionEdit> {
+        RecurringTransactionEditScreen()
     }
     composable<ExpenseManagerScreens.TransactionList> {
         TransactionListScreen(showBackNavigationIcon = true)
@@ -205,9 +211,10 @@ fun HomeScreen(
     )
 
     LaunchedEffect(Unit) {
-        // Never force the reminder on and never ask cold on launch. If we can already notify,
-        // only reschedule (which respects a reminder the user switched off). Otherwise wait:
-        // the explainer below asks once, after the first saved transaction.
+        // Never force the reminder on and never show the system dialog cold. If we can already
+        // notify, only reschedule (which respects a reminder the user switched off). Otherwise
+        // the explainer below asks once: after the first saved transaction, or on arriving here
+        // with nothing logged yet.
         if (canNotify) {
             viewModel.restartReminderIfEnabled()
         }
@@ -243,54 +250,32 @@ fun HomeScreen(
 
     Scaffold(
         bottomBar = {
-            // Bar with a centred notch; the shared "+" FAB below docks into it. One add action
-            // for every tab instead of a differently-styled FAB per tab.
-            val tabs = HomeScreenBottomBarItems.entries
-            val half = tabs.size / 2
-            Surface(
-                shape = DockedFabCutoutShape(fabDiameter = FabDiameter, margin = FabCutoutMargin),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                shadowElevation = 8.dp,
-            ) {
-                NavigationBar(
-                    containerColor = Color.Transparent,
-                    tonalElevation = 0.dp,
-                ) {
-                    tabs.take(half).forEach { uiSystem ->
-                        HomeTabItem(uiSystem, homeScreenBottomBarItems == uiSystem) {
-                            viewModel.setUISystem(uiSystem)
-                        }
-                    }
-                    // Empty middle slot: the FAB sits here, in the notch.
-                    Spacer(modifier = Modifier.weight(1f))
-                    tabs.drop(half).forEach { uiSystem ->
-                        HomeTabItem(uiSystem, homeScreenBottomBarItems == uiSystem) {
-                            viewModel.setUISystem(uiSystem)
-                        }
+            NavigationBar {
+                HomeScreenBottomBarItems.entries.forEach { uiSystem ->
+                    HomeTabItem(uiSystem, homeScreenBottomBarItems == uiSystem) {
+                        viewModel.setUISystem(uiSystem)
                     }
                 }
             }
         },
         floatingActionButton = {
-            FloatingActionButton(
-                onClick = viewModel::openAddTransaction,
-                shape = CircleShape,
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                // M3 Scaffold places the FAB 16dp above the bottom bar; push it down by that
-                // gap plus its own radius so its centre sits on the bar's top edge (docked).
-                modifier = Modifier
-                    .size(FabDiameter)
-                    .offset(y = ScaffoldFabSpacing + FabDiameter / 2),
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Add,
-                    contentDescription = stringResource(TransactionR.string.add_transaction),
-                    modifier = Modifier.size(28.dp),
-                )
+            // One "add transaction" button above the bar, bottom-right where people expect it.
+            // Analysis has nothing to add and its charts run to the bottom, so it's left out.
+            if (homeScreenBottomBarItems != HomeScreenBottomBarItems.Analysis) {
+                FloatingActionButton(
+                    onClick = viewModel::openAddTransaction,
+                    shape = RoundedCornerShape(16.dp),
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Add,
+                        contentDescription = stringResource(TransactionR.string.add_transaction),
+                    )
+                }
             }
         },
-        floatingActionButtonPosition = FabPosition.Center,
+        floatingActionButtonPosition = FabPosition.End,
     ) { paddingValues ->
         Column(
             modifier = Modifier.padding(
@@ -333,12 +318,7 @@ private fun RowScope.HomeTabItem(
                 stringResource(item.labelResourceID),
             )
         },
-        label = { Text(stringResource(item.labelResourceID)) },
+        // One line that shrinks to fit, instead of wrapping "Transac / tion" at large font sizes.
+        label = { SingleLineText(text = stringResource(item.labelResourceID)) },
     )
 }
-
-private val FabDiameter = 56.dp
-private val FabCutoutMargin = 6.dp
-
-// Matches Material 3 Scaffold's internal FabSpacing (gap between FAB and bottom bar).
-private val ScaffoldFabSpacing = 16.dp

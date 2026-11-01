@@ -45,4 +45,14 @@ interface SettingsRepository {
     fun isAppLockEnabled(): Flow<Boolean>
 
     suspend fun setAppLockEnabled(enabled: Boolean): Resource<Boolean>
+
+    /** Blocks screenshots and screen recording of the app (and its recent-apps preview). */
+    fun isScreenshotBlocked(): Flow<Boolean>
+
+    suspend fun setScreenshotBlocked(blocked: Boolean): Resource<Boolean>
+
+    /** Whether the calculator opens automatically when creating a new transaction. */
+    fun isAutoOpenCalculator(): Flow<Boolean>
+
+    suspend fun setAutoOpenCalculator(enabled: Boolean): Resource<Boolean>
 }

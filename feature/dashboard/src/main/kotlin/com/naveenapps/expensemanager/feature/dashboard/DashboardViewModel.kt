@@ -7,7 +7,6 @@ import com.naveenapps.expensemanager.core.common.utils.toMonthAndYearKey
 import com.naveenapps.expensemanager.core.common.utils.toYear
 import com.naveenapps.expensemanager.core.domain.usecase.account.GetAllAccountsUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.budget.GetBudgetsUseCase
-import com.naveenapps.expensemanager.core.domain.usecase.budget.budgetName
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
@@ -24,13 +23,19 @@ import com.naveenapps.expensemanager.core.model.DateRangeType
 import com.naveenapps.expensemanager.core.model.ExpenseFlowState
 import com.naveenapps.expensemanager.core.model.TransactionType
 import com.naveenapps.expensemanager.core.model.getAvailableCreditLimit
+import com.naveenapps.expensemanager.core.model.needsAttention
 import com.naveenapps.expensemanager.core.model.toAccountUiModel
 import com.naveenapps.expensemanager.core.model.toTransactionUIModel
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerScreens
+import com.naveenapps.expensemanager.core.repository.AnalyticsEvents
+import com.naveenapps.expensemanager.core.repository.AnalyticsParams
 import com.naveenapps.expensemanager.core.repository.AnalyticsRepository
+import com.naveenapps.expensemanager.core.repository.AutoBackupRepository
 import com.naveenapps.expensemanager.core.repository.FeedbackRepository
 import com.naveenapps.expensemanager.core.repository.SettingsRepository
+import com.naveenapps.expensemanager.feature.budget.components.toBudgetProgress
+import java.time.LocalDate
 import java.util.Date
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -56,13 +61,13 @@ class DashboardViewModel(
     private val appComposeNavigator: AppComposeNavigator,
     private val feedbackRepository: FeedbackRepository,
     private val analyticsRepository: AnalyticsRepository,
+    private val autoBackupRepository: AutoBackupRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
         DashboardState(
             expenseFlowState = ExpenseFlowState(),
             transactions = emptyList(),
-            budgets = emptyList(),
             accounts = emptyList(),
             categoryTransactionState = CategoryTransactionState(
                 pieChartData = listOf(),
@@ -81,6 +86,15 @@ class DashboardViewModel(
         feedbackRepository.getTransactionCreatedCount()
             .onEach { count ->
                 _state.update { it.copy(hasCreatedTransaction = count > 0, transactionCount = count) }
+            }
+            .launchIn(viewModelScope)
+
+        // "Automatic backup failed" banner. The snooze time is checked when settings change;
+        // a snooze that ran out shows the banner again next time Home is created.
+        autoBackupRepository.getSettings()
+            .onEach { settings ->
+                val warning = settings.lastError.takeIf { settings.needsAttention(System.currentTimeMillis()) }
+                _state.update { it.copy(backupWarning = warning) }
             }
             .launchIn(viewModelScope)
 
@@ -174,39 +188,29 @@ class DashboardViewModel(
         combine(
             getBudgetsUseCase.invoke(),
             getDateRangeUseCase.invoke(),
-        ) { allBudgets, dateRange ->
-            val activeMonth = when (dateRange.type) {
+            getCurrencyUseCase.invoke(),
+        ) { allBudgets, dateRange, currency ->
+            val activeMonthDate = when (dateRange.type) {
                 DateRangeType.TODAY, DateRangeType.THIS_WEEK, DateRangeType.THIS_MONTH ->
-                    Date(dateRange.dateRanges[0]).toMonthAndYearKey()
+                    Date(dateRange.dateRanges[0])
 
-                else -> null
+                else -> Date()
             }
-            val filtered = if (activeMonth != null) {
-                // "Active Budgets" means: the monthly budget covering the month being viewed,
-                // together with the yearly budget covering the current year — both can be active
-                // at once (e.g. a monthly grocery budget alongside a yearly travel budget).
-                val currentYear = Date().toYear()
-                allBudgets.filter { budget ->
-                    when (budget.periodType) {
-                        BudgetPeriod.MONTHLY -> budget.selectedMonth == activeMonth
-                        BudgetPeriod.YEARLY -> budget.selectedMonth == currentYear
-                    }
-                }
-            } else {
-                allBudgets
-            }
-            // The "create a budget for this month" nudge is about monthly budgets specifically —
-            // an active yearly budget shouldn't suppress it.
-            val hasMonthlyBudget = filtered.any { it.periodType == BudgetPeriod.MONTHLY }
-            val showCreateBudgetForMonth = if (activeMonth != null && !hasMonthlyBudget) {
-                budgetName(activeMonth)
-            } else {
-                null
-            }
+            val activeMonth = activeMonthDate.toMonthAndYearKey()
+            val currentYear = Date().toYear()
+            // Home shows one monthly budget (the month being viewed) and one yearly budget (this
+            // year); "View all" still lists every budget.
+            val (monthly, yearly) = pickHomeBudgets(allBudgets, activeMonth, currentYear)
+            val today = LocalDate.now()
+            val format = { value: Double -> getFormattedAmountUseCase.invoke(value, currency).amountString.orEmpty() }
             _state.update {
                 it.copy(
-                    budgets = filtered,
-                    showCreateBudgetForMonth = showCreateBudgetForMonth,
+                    homeBudgets = HomeBudgets(
+                        monthly = monthly?.toBudgetProgress(today, format),
+                        yearly = yearly?.toBudgetProgress(today, format),
+                        month = activeMonthDate,
+                        year = currentYear,
+                    ),
                     // "Create a monthly budget" is done only by a monthly budget for the current
                     // calendar month — what Home shows — not by any old or restored budget.
                     hasCurrentMonthBudget = allBudgets.any {
@@ -239,8 +243,8 @@ class DashboardViewModel(
         appComposeNavigator.navigate(ExpenseManagerScreens.BudgetList)
     }
 
-    private fun openBudgetCreate() {
-        appComposeNavigator.navigate(ExpenseManagerScreens.BudgetCreate(null))
+    private fun openBudgetCreate(period: BudgetPeriod? = null) {
+        appComposeNavigator.navigate(ExpenseManagerScreens.BudgetCreate(null, period?.name))
     }
 
     private fun openBudgetDetails(budgetId: String?) {
@@ -261,11 +265,13 @@ class DashboardViewModel(
 
             DashboardAction.OpenAccountList -> openAccountList()
 
-            is DashboardAction.OpenBudgetDetails -> openBudgetDetails(action.budgetUiModel.id)
+            is DashboardAction.OpenBudgetDetails -> openBudgetDetails(action.id)
+
+            is DashboardAction.EditBudget -> appComposeNavigator.navigate(ExpenseManagerScreens.BudgetCreate(action.id))
 
             DashboardAction.OpenBudgetList -> openBudgetList()
 
-            DashboardAction.OpenBudgetCreate -> openBudgetCreate()
+            is DashboardAction.OpenBudgetCreate -> openBudgetCreate(action.period)
 
             DashboardAction.OpenSettings -> openSettings()
 
@@ -277,6 +283,20 @@ class DashboardViewModel(
 
             DashboardAction.DismissGettingStarted -> viewModelScope.launch {
                 feedbackRepository.setGettingStartedDismissed()
+            }
+
+            DashboardAction.FixAutoBackup -> {
+                analyticsRepository.logEvent(
+                    AnalyticsEvents.AUTO_BACKUP_FIX_OPENED,
+                    mapOf(AnalyticsParams.SOURCE to "home_banner"),
+                )
+                appComposeNavigator.navigate(ExpenseManagerScreens.AutoBackupScreen)
+            }
+
+            DashboardAction.SnoozeAutoBackupWarning -> viewModelScope.launch {
+                autoBackupRepository.snoozeFailureWarning(
+                    System.currentTimeMillis() + AutoBackupRepository.WARNING_SNOOZE_MILLIS,
+                )
             }
         }
     }

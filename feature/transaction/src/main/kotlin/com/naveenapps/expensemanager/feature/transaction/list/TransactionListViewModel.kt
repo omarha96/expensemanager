@@ -22,6 +22,7 @@ import com.naveenapps.expensemanager.core.model.toTransactionUIModel
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerScreens
 import com.naveenapps.expensemanager.core.repository.ImageStorageRepository
+import com.naveenapps.expensemanager.feature.transaction.search.matchesSearch
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -70,7 +71,8 @@ class TransactionListViewModel(
             val matching = transactions.orEmpty().filter { it.matches(query) }
             visibleTransactions = matching.associateBy { it.id }
 
-            val groupedItem = matching.groupBy {
+            // Only what has actually happened: a recurring rule logs each occurrence on its day.
+            val groupedItem = matching.sortedByDescending { it.createdOn }.groupBy {
                 it.createdOn.toCompleteDateWithDate()
             }.map {
                 // The day's net is converted into the display currency; rows keep their own.
@@ -106,6 +108,10 @@ class TransactionListViewModel(
         appComposeNavigator.navigate(
             ExpenseManagerScreens.TransactionCreate(transactionId),
         )
+    }
+
+    private fun openRecurringTransactions() {
+        appComposeNavigator.navigate(ExpenseManagerScreens.RecurringTransactions)
     }
 
     private fun closePage() {
@@ -160,6 +166,7 @@ class TransactionListViewModel(
             TransactionListAction.OpenCreateTransaction -> openCreateScreen()
             is TransactionListAction.OpenEdiTransaction -> openCreateScreen(action.transactionId)
             is TransactionListAction.Search -> search(action.query)
+            TransactionListAction.OpenRecurringTransactions -> openRecurringTransactions()
             is TransactionListAction.DeleteTransaction -> deleteTransaction(action.transactionId)
             TransactionListAction.UndoDelete -> undoDelete()
             TransactionListAction.UndoExpired -> finalizePendingDelete()
@@ -172,12 +179,7 @@ class TransactionListViewModel(
  * account names. Built-in categories store an English name, so a translated category label
  * only matches by its English name.
  */
-internal fun Transaction.matches(query: String): Boolean {
-    val needle = query.trim()
-    if (needle.isEmpty()) return true
-    return listOfNotNull(notes, category.name, fromAccount.name, toAccount?.name)
-        .any { it.contains(needle, ignoreCase = true) }
-}
+internal fun Transaction.matches(query: String): Boolean = matchesSearch(query, listOf(notes, category.name, fromAccount.name, toAccount?.name))
 
 /** (signed amount, currency) per income/expense; transfers don't change the net. */
 fun List<Transaction>.toSignedAmounts(): List<Pair<Double, String>> =

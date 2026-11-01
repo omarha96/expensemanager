@@ -179,7 +179,17 @@ internal val MIGRATION_9_10 = object : Migration(9, 10) {
 }
 
 /**
- * Supplies the currency every pre-multi-currency (v10) row was implicitly in: the app's single
+ * Adds an optional `name` to `budget`. NULL for every existing row, which shows the automatic
+ * name ("This month's budget", "October 2026 budget", ...) exactly as before.
+ */
+internal val MIGRATION_10_11 = object : Migration(10, 11) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE `budget` ADD COLUMN `name` TEXT DEFAULT NULL")
+    }
+}
+
+/**
+ * Supplies the currency every pre-multi-currency (v11) row was implicitly in: the app's single
  * selected currency. Implemented outside this module (it lives in DataStore, not Room).
  */
 fun interface LegacyCurrencyCodeProvider {
@@ -190,18 +200,18 @@ fun interface LegacyCurrencyCodeProvider {
 /**
  * Multi-currency support.
  *
- * Every v10 row was in the app's one selected currency, so that code is stamped on all accounts,
+ * Every v11 row was in the app's one selected currency, so that code is stamped on all accounts,
  * transactions (both sides) and budgets here, inside the migration: no row is ever left without
- * a currency. v10 transfers were same-currency by definition, so they need no rate snapshot.
+ * a currency. v11 transfers were same-currency by definition, so they need no rate snapshot.
  *
  * `account`, `transaction` and `budget` are altered in place, not rebuilt: dropping them would
  * fire their ON DELETE CASCADE children (attachments, budget links, recurring transactions). The
  * added NOT NULL columns carry a DEFAULT only because SQLite requires one for ALTER TABLE ADD
  * COLUMN; the entities declare none, and the use-case validation rejects blank codes.
  */
-class Migration10To11(
+class Migration11To12(
     private val legacyCurrencyCodeProvider: LegacyCurrencyCodeProvider,
-) : Migration(10, 11) {
+) : Migration(11, 12) {
     override fun migrate(db: SupportSQLiteDatabase) {
         val code = legacyCurrencyCodeProvider.legacyCurrencyCode()
         require(code.isNotBlank()) { "Legacy currency code must not be blank" }
@@ -269,5 +279,6 @@ internal fun allMigrations(legacyCurrencyCodeProvider: LegacyCurrencyCodeProvide
     MIGRATION_7_8,
     MIGRATION_8_9,
     MIGRATION_9_10,
-    Migration10To11(legacyCurrencyCodeProvider),
+    MIGRATION_10_11,
+    Migration11To12(legacyCurrencyCodeProvider),
 )

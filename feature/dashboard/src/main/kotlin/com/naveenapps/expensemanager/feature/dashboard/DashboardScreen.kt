@@ -1,7 +1,6 @@
 package com.naveenapps.expensemanager.feature.dashboard
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -39,11 +39,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.res.colorResource
@@ -62,6 +62,7 @@ import com.naveenapps.expensemanager.core.designsystem.ui.components.AppCardView
 import com.naveenapps.expensemanager.core.designsystem.ui.components.AppCardViewDefaults
 import com.naveenapps.expensemanager.core.designsystem.ui.components.ExpenseManagerTopAppBar
 import com.naveenapps.expensemanager.core.model.Amount
+import com.naveenapps.expensemanager.core.model.AutoBackupError
 import com.naveenapps.expensemanager.core.model.CategoryTransaction
 import com.naveenapps.expensemanager.core.model.CategoryTransactionState
 import com.naveenapps.expensemanager.core.model.CategoryType
@@ -69,8 +70,6 @@ import com.naveenapps.expensemanager.core.model.ExpenseFlowState
 import com.naveenapps.expensemanager.core.model.getDummyPieChartData
 import com.naveenapps.expensemanager.feature.account.list.DashBoardAccountItem
 import com.naveenapps.expensemanager.feature.account.list.getRandomAccountUiModel
-import com.naveenapps.expensemanager.feature.budget.list.DashBoardBudgetItem
-import com.naveenapps.expensemanager.feature.budget.list.getRandomBudgetUiModel
 import com.naveenapps.expensemanager.feature.category.list.getCategoryData
 import com.naveenapps.expensemanager.feature.filter.FilterView
 import com.naveenapps.expensemanager.feature.transaction.list.TransactionItem
@@ -141,6 +140,18 @@ private fun DashboardScreenContent(
                     .fillMaxWidth()
                     .padding(end = 6.dp),
             )
+        }
+        state.backupWarning?.let { warning ->
+            item("backup_warning") {
+                AutoBackupWarningCard(
+                    error = warning,
+                    onFix = { onAction(DashboardAction.FixAutoBackup) },
+                    onLater = { onAction(DashboardAction.SnoozeAutoBackupWarning) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
         }
         item {
             GettingStartedSection(state = state, onAction = onAction)
@@ -248,88 +259,11 @@ private fun DashboardScreenContent(
                         onAction.invoke(DashboardAction.OpenBudgetList)
                     },
                 )
-                if (state.budgets.isNotEmpty()) {
-                    LazyRow(
-                        modifier = Modifier
-                            .fillMaxWidth(),
-                        contentPadding = PaddingValues(horizontal = 16.dp),
-                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    ) {
-                        items(state.budgets, key = { it.id }) { budget ->
-                            DashBoardBudgetItem(
-                                modifier = Modifier,
-                                name = budget.name,
-                                progressBarColor = budget.progressBarColor,
-                                amount = budget.amount.amountString,
-                                transactionAmount = budget.transactionAmount.amountString,
-                                percentage = budget.percent,
-                                onItemClick = {
-                                    onAction.invoke(DashboardAction.OpenBudgetDetails(budget))
-                                },
-                            )
-                        }
-                    }
-                } else if (state.showCreateBudgetForMonth != null) {
-                    AppCardView(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp),
-                        border = BorderStroke(
-                            width = 1.dp,
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f),
-                        ),
-                        onClick = { onAction.invoke(DashboardAction.OpenBudgetCreate) },
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(horizontal = 18.dp, vertical = 16.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(44.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primaryContainer),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Add,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(
-                                    text = stringResource(
-                                        id = R.string.no_budget_for_month,
-                                        state.showCreateBudgetForMonth,
-                                    ),
-                                    style = MaterialTheme.typography.titleSmall.copy(
-                                        fontWeight = FontWeight.SemiBold,
-                                    ),
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
-                                Text(
-                                    text = stringResource(id = R.string.tap_to_set_spending_limit),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        .copy(alpha = 0.7f),
-                                )
-                            }
-                        }
-                    }
-                } else {
-                    EmptyItem(
-                        emptyItemText = stringResource(id = com.naveenapps.expensemanager.feature.budget.R.string.no_budget_available_short),
-                        icon = com.naveenapps.expensemanager.core.designsystem.R.drawable.ic_no_budgets,
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .align(Alignment.CenterHorizontally),
-                    )
-                }
+                HomeBudgetCard(
+                    budgets = state.homeBudgets,
+                    onAction = onAction,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
             }
         }
 
@@ -452,7 +386,6 @@ fun DashboardScaffoldContentPreview() {
                     }.take(5),
                     categoryType = CategoryType.EXPENSE,
                 ),
-                budgets = getRandomBudgetUiModel(5),
                 transactions = listOf(
                     getTransactionItem("1"),
                     getTransactionItem("2"),
@@ -467,6 +400,71 @@ fun DashboardScaffoldContentPreview() {
 
 // Only new users get the checklist; long-time users (and anyone who closed it) never see it.
 private const val GETTING_STARTED_MAX_TRANSACTIONS = 10
+
+/**
+ * Shown on Home while automatic backups are failing, so a broken backup never goes unnoticed.
+ * "Fix" opens Automatic backup; "Later" hides it for a few days. It goes away by itself once a
+ * backup succeeds or a new folder is chosen.
+ */
+@Composable
+private fun AutoBackupWarningCard(
+    error: AutoBackupError,
+    onFix: () -> Unit,
+    onLater: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        color = MaterialTheme.colorScheme.errorContainer,
+        contentColor = MaterialTheme.colorScheme.onErrorContainer,
+    ) {
+        Column(modifier = Modifier.padding(start = 16.dp, end = 8.dp, top = 16.dp, bottom = 8.dp)) {
+            Row(verticalAlignment = Alignment.Top) {
+                Icon(
+                    imageVector = Icons.Outlined.CloudOff,
+                    contentDescription = null,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                    Text(
+                        text = stringResource(id = R.string.auto_backup_warning_title),
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                    Text(
+                        text = stringResource(
+                            id = when (error) {
+                                AutoBackupError.FOLDER_UNAVAILABLE -> R.string.auto_backup_warning_folder
+                                AutoBackupError.WRITE_FAILED -> R.string.auto_backup_warning_write
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                TextButton(onClick = onLater) {
+                    Text(
+                        text = stringResource(id = R.string.auto_backup_warning_later),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                    )
+                }
+                TextButton(onClick = onFix) {
+                    Text(
+                        text = stringResource(id = R.string.auto_backup_warning_fix),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
+        }
+    }
+}
 
 // Display order of the "Get started" checklist.
 private enum class SetupStep { FirstExpense, Accounts, Budget, Currency }
@@ -497,7 +495,7 @@ private fun GettingStartedSection(
             when (step) {
                 SetupStep.FirstExpense -> onAction(DashboardAction.OpenTransactionEdit(null))
                 SetupStep.Accounts -> onAction(DashboardAction.OpenAccountList)
-                SetupStep.Budget -> onAction(DashboardAction.OpenBudgetCreate)
+                SetupStep.Budget -> onAction(DashboardAction.OpenBudgetCreate())
                 SetupStep.Currency -> onAction(DashboardAction.OpenCurrency)
             }
         },

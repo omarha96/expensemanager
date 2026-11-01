@@ -1,6 +1,7 @@
 package com.naveenapps.expensemanager
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.util.Log
@@ -35,6 +36,7 @@ import com.naveenapps.expensemanager.core.designsystem.theme.ExpenseManagerTheme
 import com.naveenapps.expensemanager.core.designsystem.utils.shouldUseDarkTheme
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerScreens
+import com.naveenapps.expensemanager.core.notification.ACTION_OPEN_AUTO_BACKUP
 import com.naveenapps.expensemanager.core.repository.ActivityComponentProvider
 import com.naveenapps.expensemanager.core.repository.AnalyticsEvents
 import com.naveenapps.expensemanager.core.repository.AnalyticsParams
@@ -42,6 +44,7 @@ import com.naveenapps.expensemanager.core.repository.AnalyticsRepository
 import com.naveenapps.expensemanager.ui.AppLockScreen
 import com.naveenapps.expensemanager.ui.MainScreen
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.android.scope.AndroidScopeComponent
@@ -82,6 +85,7 @@ internal class MainActivity :
         // Only on a fresh launch: a recreated Activity re-delivers the same intent.
         if (savedInstanceState == null) {
             handleQuickAdd(intent)
+            handleOpenAutoBackup(intent)
         }
 
         lifecycleScope.launch {
@@ -94,15 +98,21 @@ internal class MainActivity :
             }
         }
 
-        // With app lock on, keep balances out of the recent-apps preview and screenshots.
+        // App lock keeps balances out of the recent-apps preview (Android 13+) while still
+        // allowing screenshots. "Block screenshots" in Settings → Security blocks screenshots
+        // and screen recording too (FLAG_SECURE also hides the preview on every version).
         lifecycleScope.launch {
-            viewModel.isAppLockEnabled.collect { enabled ->
-                if (enabled) {
-                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
-                } else {
-                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+            combine(viewModel.isAppLockEnabled, viewModel.isScreenshotBlocked, ::Pair)
+                .collect { (isLocked, isScreenshotBlocked) ->
+                    if (isScreenshotBlocked) {
+                        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    } else {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    }
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        setRecentsScreenshotEnabled(!isLocked)
+                    }
                 }
-            }
         }
 
         setContent {
@@ -120,6 +130,7 @@ internal class MainActivity :
                 val isAppLockEnabled by viewModel.isAppLockEnabled.collectAsStateWithLifecycle()
                 val isAuthenticated by viewModel.isAuthenticated.collectAsStateWithLifecycle()
                 val pendingQuickAdd by viewModel.pendingQuickAdd.collectAsStateWithLifecycle()
+                val pendingOpenAutoBackup by viewModel.pendingOpenAutoBackup.collectAsStateWithLifecycle()
                 val isDarkTheme = shouldUseDarkTheme(theme = currentTheme.mode)
 
                 if (onBoardingStatus != null) {
@@ -150,6 +161,9 @@ internal class MainActivity :
                                 // Before onboarding there's nowhere sensible to add, so drop it.
                                 pendingQuickAdd = pendingQuickAdd && onBoardingStatus == true && !showLock,
                                 onQuickAddHandled = viewModel::onQuickAddHandled,
+                                // Same gating as quick add: after onboarding, and once unlocked.
+                                pendingOpenAutoBackup = pendingOpenAutoBackup && onBoardingStatus == true && !showLock,
+                                onOpenAutoBackupHandled = viewModel::onOpenAutoBackupHandled,
                             )
                         }
 
@@ -171,6 +185,17 @@ internal class MainActivity :
         super.onNewIntent(intent)
         setIntent(intent)
         handleQuickAdd(intent)
+        handleOpenAutoBackup(intent)
+    }
+
+    /** "Automatic backup failed" notification: open the screen where it can be fixed. */
+    private fun handleOpenAutoBackup(intent: Intent?) {
+        if (intent?.action != ACTION_OPEN_AUTO_BACKUP) return
+        analyticsRepository.logEvent(
+            AnalyticsEvents.AUTO_BACKUP_FIX_OPENED,
+            mapOf(AnalyticsParams.SOURCE to "notification"),
+        )
+        viewModel.requestOpenAutoBackup()
     }
 
     /** Widget "+", launcher shortcut or reminder tap: open straight on the keypad. */

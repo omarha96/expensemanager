@@ -15,7 +15,6 @@
     <string name="transaction_create_message">"Catat pengeluaran, pemasukan, dan transfer Anda di sini. "</string>
     <string name="help"><![CDATA[Bantuan & info]]></string>
     <string name="ok">OK</string>
-    <string name="no_budget_for_month">Tidak Ada %1$s</string>
     <string name="tap_to_set_spending_limit">Ketuk untuk menetapkan batas pengeluaran</string>
     <string name="first_expense_action">Tambah pengeluaran</string>
     <string name="getting_started_title">Mulai</string>
@@ -33,4 +32,11 @@
     <string name="step_currency_title">Pilih mata uang</string>
     <string name="step_currency_description">Jumlah ditampilkan dalam mata uang ini</string>
     <string name="step_currency_action">Ubah mata uang</string>
+    <string name="auto_backup_warning_title">Cadangan otomatis tidak berjalan</string>
+    <string name="auto_backup_warning_folder">Folder cadangan tidak dapat diakses. Pilih lagi agar data Anda tetap aman.</string>
+    <string name="auto_backup_warning_write">Pencadangan terakhir gagal. Periksa setelan cadangan agar data Anda tetap aman.</string>
+    <string name="auto_backup_warning_later">Nanti</string>
+    <string name="auto_backup_warning_fix">Perbaiki</string>
+    <string name="home_budget_none">Belum ada anggaran untuk %1$s</string>
+    <string name="home_budget_create">Atur anggaran</string>
 </resources>

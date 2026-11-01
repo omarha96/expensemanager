@@ -43,29 +43,19 @@ sealed class SettingAction {
     // Data & Backup section
     data object OpenRecurringTransactions : SettingAction()
 
-    data object Backup : SettingAction()
+    data object OpenBackup : SettingAction()
 
-    data object Restore : SettingAction()
-
-    /** Result of the "create document" picker; null when the user backed out. */
-    data class BackupDestinationSelected(val uri: String?) : SettingAction()
-
-    data object ConfirmRestore : SettingAction()
-
-    data object DismissRestoreConfirmation : SettingAction()
-
-    /** Result of the "open document" picker; null when the user backed out. */
-    data class RestoreSourceSelected(val uri: String?) : SettingAction()
-
-    /** Confirms the passphrase dialog; an empty value on backup means "no passphrase". */
-    data class SubmitPassphrase(val passphrase: String) : SettingAction()
-
-    data object DismissPassphrasePrompt : SettingAction()
-    data object DismissRestoreCurrency : SettingAction()
-
-    /** The currency the backup's amounts are in (needed for pre-multi-currency backups). */
-    data class ConfirmRestoreCurrency(val currencyCode: String) : SettingAction()
+    data object OpenRestore : SettingAction()
 
     // Security section
     data object ToggleAppLock : SettingAction()
+
+    data object ToggleScreenshotBlock : SettingAction()
+
+    // Developer section (debug builds only)
+    data object LoadDemoData : SettingAction()
+
+    data object ConfirmDemoData : SettingAction()
+
+    data object DismissDemoData : SettingAction()
 }

@@ -160,12 +160,228 @@ class RecurringTransactionsTest {
         assertThat(rules.rules.value.single().nextOccurrence).isEqualTo(1)
     }
 
+    @Test
+    fun `an occurrence is logged from the start of its day, not its time of day`() = runTest {
+        // Rent was first added on Sep 1 at 6 pm; on Oct 1 the user opens the app in the morning.
+        val rules = FakeRecurringRepository(rule(date(2026, 9, 1, h = 18)))
+        val transactions = FakeTransactionRepository()
+        val process = processUseCase(rules, transactions)
+
+        val created = process(now = date(2026, 10, 1, h = 9))
+
+        assertThat(created).isEqualTo(1)
+        // It keeps the rule's time of day.
+        assertThat(transactions.added.single().createdOn.local()).isEqualTo(LocalDateTime.of(2026, 10, 1, 18, 0))
+        assertThat(rules.rules.value.single().nextDueDate.local().toLocalDate().toString()).isEqualTo("2026-11-01")
+    }
+
+    @Test
+    fun `nothing is logged the day before it is due`() = runTest {
+        val rules = FakeRecurringRepository(rule(date(2026, 9, 1, h = 6)))
+        val transactions = FakeTransactionRepository()
+        val process = processUseCase(rules, transactions)
+
+        val created = process(now = date(2026, 9, 30, h = 23))
+
+        assertThat(created).isEqualTo(0)
+        assertThat(rules.rules.value.single().nextOccurrence).isEqualTo(1)
+    }
+
+    @Test
+    fun `a template edit made while the processor runs is not overwritten`() = runTest {
+        val rules = FakeRecurringRepository(rule(date(2026, 9, 1)))
+        val transactions = FakeTransactionRepository()
+        val process = processUseCase(rules, transactions)
+        // The user saves a new amount after the processor has read the due rules.
+        rules.afterGetDue = {
+            rules.rules.value = rules.rules.value.map { it.copy(amount = 1500.0, notes = "New rent") }
+        }
+
+        process(now = date(2026, 10, 3))
+
+        val stored = rules.rules.value.single()
+        assertThat(stored.amount).isEqualTo(1500.0)
+        assertThat(stored.notes).isEqualTo("New rent")
+        // Oct 1 was still logged and the rule moved on to Nov 1.
+        assertThat(stored.nextOccurrence).isEqualTo(2)
+    }
+
+    // endregion
+
+    // region editing
+
+    private fun updateUseCase(rules: FakeRecurringRepository, transactions: FakeTransactionRepository = FakeTransactionRepository()) = UpdateRecurringTransactionUseCase(rules, processUseCase(rules, transactions))
+
+    @Test
+    fun `a new rule dated in the past fills in the missed months straight away`() = runTest {
+        // Rent entered today (Oct 3) with a start date of Jul 1; the Jul 1 transaction itself
+        // was just saved by the create screen.
+        val rules = FakeRecurringRepository()
+        val transactions = FakeTransactionRepository()
+        val create = CreateRecurringTransactionUseCase(rules, processUseCase(rules, transactions))
+        val first = Transaction(
+            id = "first",
+            notes = "Rent",
+            categoryId = "rent",
+            fromAccountId = "bank",
+            toAccountId = null,
+            type = TransactionType.EXPENSE,
+            amount = com.naveenapps.expensemanager.core.model.Amount(1000.0),
+            imagePath = "",
+            createdOn = date(2026, 7, 1),
+            updatedOn = date(2026, 7, 1),
+            fromCurrencyCode = "USD",
+            toCurrencyCode = "USD",
+        )
+
+        create(first, RecurringFrequency.MONTHLY, now = date(2026, 10, 3))
+
+        assertThat(transactions.added.map { it.createdOn.local().toLocalDate().toString() })
+            .containsExactly("2026-08-01", "2026-09-01", "2026-10-01").inOrder()
+        assertThat(rules.rules.value.single().nextDueDate.local().toLocalDate().toString()).isEqualTo("2026-11-01")
+    }
+
+    @Test
+    fun `moving the next date to today logs it straight away`() = runTest {
+        val original = rule(date(2026, 9, 1)).copy(nextOccurrence = 1, nextDueDate = date(2026, 10, 1))
+        val rules = FakeRecurringRepository(original)
+        val transactions = FakeTransactionRepository()
+
+        updateUseCase(rules, transactions)("rule", changes(original, nextDueDate = date(2026, 10, 3, h = 8)), now = date(2026, 10, 3, h = 9))
+
+        assertThat(transactions.added.map { it.createdOn.local().toLocalDate().toString() }).containsExactly("2026-10-03")
+    }
+
+    private fun changes(
+        base: RecurringTransaction,
+        amount: Double = base.amount,
+        notes: String = base.notes,
+        frequency: RecurringFrequency = base.frequency,
+        nextDueDate: Date = base.nextDueDate,
+    ) = RecurringTransactionChanges(
+        amount = amount,
+        notes = notes,
+        categoryId = base.categoryId,
+        fromAccountId = base.fromAccountId,
+        toAccountId = base.toAccountId,
+        frequency = frequency,
+        nextDueDate = nextDueDate,
+    )
+
+    @Test
+    fun `template edit updates the rule in place and keeps its schedule`() = runTest {
+        val original = rule(date(2026, 9, 1)).copy(nextOccurrence = 2, nextDueDate = date(2026, 11, 1))
+        val rules = FakeRecurringRepository(original)
+
+        val result = updateUseCase(rules)(
+            "rule",
+            changes(original, amount = 1200.0, notes = "Rent + parking"),
+            now = date(2026, 10, 3),
+        )
+
+        assertThat(result).isInstanceOf(Resource.Success::class.java)
+        val stored = rules.rules.value.single()
+        assertThat(stored.id).isEqualTo("rule")
+        assertThat(stored.amount).isEqualTo(1200.0)
+        assertThat(stored.notes).isEqualTo("Rent + parking")
+        assertThat(stored.nextOccurrence).isEqualTo(2)
+        assertThat(stored.startDate).isEqualTo(original.startDate)
+    }
+
+    @Test
+    fun `edited template is used for the next occurrence but past ones are untouched`() = runTest {
+        val rules = FakeRecurringRepository(rule(date(2026, 8, 1)))
+        val transactions = FakeTransactionRepository()
+        val process = processUseCase(rules, transactions)
+        process(now = date(2026, 9, 15)) // logs Sep 1 at 1000
+
+        updateUseCase(rules, transactions)(
+            "rule",
+            changes(rules.rules.value.single(), amount = 1200.0),
+            now = date(2026, 9, 15),
+        )
+        process(now = date(2026, 10, 3)) // logs Oct 1 at the new amount
+
+        assertThat(transactions.added.map { it.amount.amount }).containsExactly(1000.0, 1200.0).inOrder()
+    }
+
+    @Test
+    fun `schedule change starts a new series that never reuses an occurrence id`() = runTest {
+        val rules = FakeRecurringRepository(rule(date(2026, 8, 1)))
+        val transactions = FakeTransactionRepository()
+        val process = processUseCase(rules, transactions)
+        process(now = date(2026, 9, 15)) // logs Sep 1 as occurrence 1
+
+        val result = updateUseCase(rules, transactions)(
+            "rule",
+            changes(rules.rules.value.single(), frequency = RecurringFrequency.WEEKLY, nextDueDate = date(2026, 9, 20)),
+            now = date(2026, 9, 15),
+        )
+        process(now = date(2026, 10, 1))
+
+        val newRule = (result as Resource.Success).data
+        assertThat(newRule.id).isNotEqualTo("rule")
+        assertThat(rules.rules.value.map { it.id }).containsExactly(newRule.id)
+        // Sep 1 (old series), then Sep 20 and Sep 27 from the new weekly series.
+        assertThat(transactions.added.map { it.createdOn.local().toLocalDate().toString() })
+            .containsExactly("2026-09-01", "2026-09-20", "2026-09-27").inOrder()
+        assertThat(transactions.added.map { it.id }.toSet()).hasSize(3)
+    }
+
+    @Test
+    fun `schedule change to a past date is rejected and nothing changes`() = runTest {
+        val original = rule(date(2026, 9, 1))
+        val rules = FakeRecurringRepository(original)
+
+        val result = updateUseCase(rules)(
+            "rule",
+            changes(original, nextDueDate = date(2026, 9, 10)),
+            now = date(2026, 10, 3),
+        )
+
+        assertThat(result).isInstanceOf(Resource.Error::class.java)
+        assertThat(rules.rules.value.single()).isEqualTo(original)
+    }
+
+    @Test
+    fun `editing a deleted rule fails`() = runTest {
+        val rules = FakeRecurringRepository()
+
+        val result = updateUseCase(rules)("gone", changes(rule(date(2026, 9, 1))))
+
+        assertThat(result).isInstanceOf(Resource.Error::class.java)
+    }
+
+    @Test
+    fun `rule id is recovered from an occurrence id`() {
+        val ruleId = "3f2a9c1e-7b4d-4e8a-9a51-0c6d2b7e8f10"
+        val occurrenceId = ProcessRecurringTransactionsUseCase.occurrenceTransactionId(ruleId, 12)
+
+        assertThat(ProcessRecurringTransactionsUseCase.ruleIdFromOccurrenceId(occurrenceId)).isEqualTo(ruleId)
+        assertThat(ProcessRecurringTransactionsUseCase.ruleIdFromOccurrenceId("plain-transaction-id")).isNull()
+        assertThat(ProcessRecurringTransactionsUseCase.ruleIdFromOccurrenceId("recurring-abc-notanumber")).isNull()
+    }
+
     // endregion
 
     private class FakeRecurringRepository(vararg initial: RecurringTransaction) : RecurringTransactionRepository {
         val rules = MutableStateFlow(initial.toList())
+
+        /** Runs right after getDue returns, to simulate something changing mid-run. */
+        var afterGetDue: (() -> Unit)? = null
+
         override fun getAll(): Flow<List<RecurringTransaction>> = rules
         override suspend fun getDue(dueBefore: Date) = rules.value.filter { !it.nextDueDate.after(dueBefore) }
+            .also { afterGetDue?.invoke() }
+        override suspend fun findById(id: String) = rules.value.firstOrNull { it.id == id }
+        override suspend fun advance(id: String, nextOccurrence: Int, nextDueDate: Date, updatedOn: Date) {
+            rules.value = rules.value.map {
+                if (it.id == id) it.copy(nextOccurrence = nextOccurrence, nextDueDate = nextDueDate, updatedOn = updatedOn) else it
+            }
+        }
+        override suspend fun replace(oldId: String, replacement: RecurringTransaction) {
+            rules.value = rules.value.filterNot { it.id == oldId } + replacement
+        }
         override suspend fun add(recurring: RecurringTransaction) {
             rules.value = rules.value + recurring
         }

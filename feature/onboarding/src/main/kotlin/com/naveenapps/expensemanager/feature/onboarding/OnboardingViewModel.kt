@@ -16,6 +16,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.settings.reminder.GetRe
 import com.naveenapps.expensemanager.core.domain.usecase.settings.reminder.UpdateReminderStatusUseCase
 import com.naveenapps.expensemanager.core.model.Account
 import com.naveenapps.expensemanager.core.model.Resource
+import com.naveenapps.expensemanager.core.model.toAccountUiModel
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
 import com.naveenapps.expensemanager.core.navigation.ExpenseManagerScreens
 import com.naveenapps.expensemanager.core.repository.AnalyticsEvents
@@ -26,7 +27,6 @@ import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -43,10 +43,6 @@ class OnboardingViewModel(
     private val getAccountUiModelUseCase: GetAccountUiModelUseCase,
     private val composeNavigator: AppComposeNavigator,
     private val analyticsRepository: AnalyticsRepository,
-    private val getReminderStatusUseCase: GetReminderStatusUseCase,
-    private val getReminderTimeUseCase: GetReminderTimeUseCase,
-    private val updateReminderStatusUseCase: UpdateReminderStatusUseCase,
-    private val reminderTimeRepository: ReminderTimeRepository,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
@@ -65,7 +61,10 @@ class OnboardingViewModel(
             if (getOnboardingStatusUseCase.invoke()) {
                 openHome()
             } else {
-                loadReminder()
+                // Setup is the first screen a new user sees (Intro was merged into it), so this is
+                // the activation funnel's entry step. init runs once per screen instance, not on
+                // recomposition or rotation.
+                analyticsRepository.logEvent(AnalyticsEvents.INTRO_GET_STARTED, emptyMap())
                 combine(
                     getCurrencyUseCase.invoke(),
                     getAllAccountsUseCase.invoke(),
@@ -98,32 +97,12 @@ class OnboardingViewModel(
         when (action) {
             OnboardingAction.Next -> {
                 logOnboardingCompleted(METHOD_EXPLORE)
-                viewModelScope.launch {
-                    saveReminderChoice()
-                    openHome()
-                }
+                openHome()
             }
 
             OnboardingAction.AddFirstExpense -> {
                 logOnboardingCompleted(METHOD_ADD_EXPENSE)
-                viewModelScope.launch {
-                    saveReminderChoice()
-                    openFirstTransaction()
-                }
-            }
-
-            is OnboardingAction.SetReminderEnabled -> {
-                _state.update { it.copy(reminderEnabled = action.enabled) }
-            }
-
-            is OnboardingAction.NotificationPermissionResult -> {
-                analyticsRepository.logEvent(
-                    AnalyticsEvents.NOTIFICATION_PERMISSION_RESULT,
-                    mapOf(
-                        AnalyticsParams.GRANTED to action.granted.toString(),
-                        AnalyticsParams.METHOD to METHOD_ONBOARDING,
-                    ),
-                )
+                viewModelScope.launch { openFirstTransaction() }
             }
 
             OnboardingAction.OpenAccounts -> {
@@ -179,7 +158,6 @@ class OnboardingViewModel(
                 AnalyticsParams.METHOD to method,
                 AnalyticsParams.CURRENCY to current.currency.code,
                 AnalyticsParams.ACCOUNT_COUNT to current.accounts.size.toString(),
-                AnalyticsParams.REMINDER_ENABLED to current.reminderEnabled.toString(),
             ),
         )
     }
@@ -196,22 +174,6 @@ class OnboardingViewModel(
         )
     }
 
-    private suspend fun loadReminder() {
-        val enabled = getReminderStatusUseCase.invoke().first()
-        val time = getReminderTimeUseCase.invoke().first()
-        _state.update { it.copy(reminderEnabled = enabled, reminderTime = time) }
-    }
-
-    /**
-     * Persists the switch and records that the notification question has been asked here,
-     * so Home's post-first-expense explainer doesn't ask a second time. Home reschedules the
-     * reminder on arrival once the permission is in place.
-     */
-    private suspend fun saveReminderChoice() {
-        updateReminderStatusUseCase.invoke(_state.value.reminderEnabled)
-        reminderTimeRepository.setNotificationPrimerShown()
-    }
-
     private fun showCurrencySelection() {
         _state.update { it.copy(showCurrencySelection = true) }
     }
@@ -223,6 +185,5 @@ class OnboardingViewModel(
     private companion object {
         const val METHOD_EXPLORE = "explore"
         const val METHOD_ADD_EXPENSE = "add_expense"
-        const val METHOD_ONBOARDING = "onboarding"
     }
 }

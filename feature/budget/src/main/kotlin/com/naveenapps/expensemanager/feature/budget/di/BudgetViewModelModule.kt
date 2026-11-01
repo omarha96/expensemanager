@@ -28,6 +28,8 @@ val BudgetViewModelModule = module {
         BudgetDetailViewModel(
             savedStateHandle = get(),
             getBudgetDetailUseCase = get(),
+            getCurrencyUseCase = get(),
+            getFormattedAmountUseCase = get(),
             appComposeNavigator = get(),
         )
     }

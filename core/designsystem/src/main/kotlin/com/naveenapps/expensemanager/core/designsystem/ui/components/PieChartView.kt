@@ -39,6 +39,8 @@ fun PieChartView(
     var isAnimated by rememberSaveable { mutableStateOf(false) }
 
     val onBackgroundColor = MaterialTheme.colorScheme.onBackground.toArgb()
+    // Category names beside the donut; their percentages use the slice colour.
+    val labelTextColor = MaterialTheme.colorScheme.onSurface.toArgb()
     val holeColor = MaterialTheme.colorScheme.background.toArgb()
     val surfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
         .copy(alpha = 0.5f).toArgb()
@@ -49,6 +51,8 @@ fun PieChartView(
             factory = { context ->
                 PieChart(context).apply {
                     layoutParams = LinearLayout.LayoutParams(chartWidth, chartHeight)
+                    // Outside labels are laid out without overlapping (see renderer).
+                    renderer = NonOverlappingPieChartRenderer(this, animator, viewPortHandler)
 
                     // ── Disable chrome ──────────────────────────────
                     description.isEnabled = false
@@ -91,6 +95,10 @@ fun PieChartView(
 
                     // ── Extra offsets for outer label breathing room ─
                     if (!hideValues) {
+                        // Keep these small: MPAndroidChart subtracts extra offsets twice (in
+                        // calculateOffsets and again in getDiameter) on top of its own base
+                        // offset, so large values shrink the donut to nothing. With these the
+                        // donut is limited by the height, which leaves room for the labels.
                         setExtraOffsets(24f, 12f, 24f, 12f)
                     } else {
                         setExtraOffsets(8f, 8f, 8f, 8f)
@@ -114,6 +122,7 @@ fun PieChartView(
                     onBackgroundColor,
                     holeColor,
                     surfaceVariantColor,
+                    labelTextColor,
                 )
                 if (chart.tag != binding) {
                     chart.tag = binding
@@ -121,6 +130,7 @@ fun PieChartView(
                     chart.setHoleColor(holeColor)
                     chart.setTransparentCircleColor(holeColor)
                     chart.centerText = totalAmountText
+                    (chart.renderer as? NonOverlappingPieChartRenderer)?.labelTextColor = labelTextColor
                     updatePieChartWithData(chart, pieChartData, hideValues, surfaceVariantColor)
                 }
             },
@@ -140,6 +150,7 @@ private data class PieChartBinding(
     val onBackgroundColor: Int,
     val holeColor: Int,
     val labelColor: Int,
+    val labelTextColor: Int,
 )
 
 private fun updatePieChartWithData(

@@ -45,7 +45,7 @@ import com.naveenapps.expensemanager.core.database.utils.TransactionTypeConverte
         ExchangeRateSnapshotEntity::class,
         StaticExchangeRateEntity::class,
     ],
-    version = 11,
+    version = 12,
     exportSchema = true,
 )
 @TypeConverters(

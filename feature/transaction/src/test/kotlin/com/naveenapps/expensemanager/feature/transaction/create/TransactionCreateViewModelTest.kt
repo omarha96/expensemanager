@@ -10,6 +10,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.account.GetAllAccountsU
 import com.naveenapps.expensemanager.core.domain.usecase.category.GetAllCategoryUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.recurring.CreateRecurringTransactionUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.recurring.FindRecurringTransactionByIdUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
@@ -26,11 +27,13 @@ import com.naveenapps.expensemanager.core.model.Category
 import com.naveenapps.expensemanager.core.model.CategoryType
 import com.naveenapps.expensemanager.core.model.Currency
 import com.naveenapps.expensemanager.core.model.ExchangeRateSource
+import com.naveenapps.expensemanager.core.model.RecurringFrequency
 import com.naveenapps.expensemanager.core.model.StoredIcon
 import com.naveenapps.expensemanager.core.model.TextFieldValue
 import com.naveenapps.expensemanager.core.model.Transaction
 import com.naveenapps.expensemanager.core.model.TransactionType
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
+import com.naveenapps.expensemanager.core.navigation.ExpenseManagerArgsNames
 import com.naveenapps.expensemanager.core.repository.AnalyticsRepository
 import com.naveenapps.expensemanager.core.repository.BudgetAlertTrigger
 import com.naveenapps.expensemanager.core.repository.FeedbackRepository
@@ -76,6 +79,7 @@ class TransactionCreateViewModelTest : BaseCoroutineTest() {
     private val getAccountUiModelUseCase: GetAccountUiModelUseCase = mock()
     private val formatAmountInCurrencyUseCase: FormatAmountInCurrencyUseCase = mock()
     private val getCurrentExchangeRateUseCase: GetCurrentExchangeRateUseCase = mock()
+    private val findRecurringTransactionByIdUseCase: FindRecurringTransactionByIdUseCase = mock()
 
     private lateinit var viewModel: TransactionCreateViewModel
 
@@ -119,6 +123,7 @@ class TransactionCreateViewModelTest : BaseCoroutineTest() {
         whenever(settingsRepository.getDefaultAccount()).thenReturn(flowOf(null))
         whenever(settingsRepository.getDefaultIncomeCategory()).thenReturn(flowOf(null))
         whenever(settingsRepository.getDefaultExpenseCategory()).thenReturn(flowOf(null))
+        whenever(settingsRepository.isAutoOpenCalculator()).thenReturn(flowOf(true))
         whenever(feedbackRepository.getTransactionCreatedCount()).thenReturn(flowOf(1))
         whenever(feedbackRepository.shouldShowFeedbackDialog()).thenReturn(flowOf(false))
         whenever(getFormattedAmountUseCase.invoke(any<Double>(), any<Currency>())).thenReturn(Amount(0.0))
@@ -134,8 +139,8 @@ class TransactionCreateViewModelTest : BaseCoroutineTest() {
         viewModel = createViewModel()
     }
 
-    private fun createViewModel() = TransactionCreateViewModel(
-        savedStateHandle = SavedStateHandle(),
+    private fun createViewModel(savedStateHandle: SavedStateHandle = SavedStateHandle()) = TransactionCreateViewModel(
+        savedStateHandle = savedStateHandle,
         getCurrencyUseCase = getCurrencyUseCase,
         getAllAccountsUseCase = getAllAccountsUseCase,
         getAllCategoryUseCase = getAllCategoryUseCase,
@@ -156,6 +161,7 @@ class TransactionCreateViewModelTest : BaseCoroutineTest() {
         getAccountUiModelUseCase = getAccountUiModelUseCase,
         formatAmountInCurrencyUseCase = formatAmountInCurrencyUseCase,
         getCurrentExchangeRateUseCase = getCurrentExchangeRateUseCase,
+        findRecurringTransactionByIdUseCase = findRecurringTransactionByIdUseCase,
     )
 
     // region helpers
@@ -348,8 +354,47 @@ class TransactionCreateViewModelTest : BaseCoroutineTest() {
     // region number pad
 
     @Test
-    fun `new transaction opens straight on the number pad`() {
+    fun `new transaction opens straight on the number pad`() = runTest {
+        advanceUntilIdle()
+
         assertThat(viewModel.state.value.showNumberPad).isTrue()
+    }
+
+    @Test
+    fun `repeat passed by the caller is pre-selected and not an unsaved change`() {
+        val viewModel = createViewModel(
+            SavedStateHandle(mapOf(ExpenseManagerArgsNames.REPEAT to RecurringFrequency.MONTHLY.name)),
+        )
+
+        assertThat(viewModel.state.value.repeat).isEqualTo(RecurringFrequency.MONTHLY)
+        assertThat(viewModel.hasUnsavedChanges()).isFalse()
+
+        viewModel.processAction(TransactionCreateAction.SelectRepeat(RecurringFrequency.WEEKLY))
+        assertThat(viewModel.hasUnsavedChanges()).isTrue()
+    }
+
+    @Test
+    fun `repeat passed by the caller is ignored when editing`() {
+        val viewModel = createViewModel(
+            SavedStateHandle(
+                mapOf(
+                    ExpenseManagerArgsNames.ID to "existing",
+                    ExpenseManagerArgsNames.REPEAT to RecurringFrequency.MONTHLY.name,
+                ),
+            ),
+        )
+
+        assertThat(viewModel.state.value.repeat).isNull()
+    }
+
+    @Test
+    fun `new transaction stays on the form when auto-open calculator is disabled`() = runTest {
+        whenever(settingsRepository.isAutoOpenCalculator()).thenReturn(flowOf(false))
+
+        val viewModel = createViewModel()
+        advanceUntilIdle()
+
+        assertThat(viewModel.state.value.showNumberPad).isFalse()
     }
 
     @Test

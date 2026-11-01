@@ -65,4 +65,5 @@
     <string name="fixed_details_hint">An account\'s name, type, currency and balance can\'t be changed after creation. The balance changes only through transactions.</string>
     <string name="archived_accounts">Archived</string>
     <string name="unarchive">Unarchive</string>
+    <string name="search_accounts">Search accounts</string>
 </resources>

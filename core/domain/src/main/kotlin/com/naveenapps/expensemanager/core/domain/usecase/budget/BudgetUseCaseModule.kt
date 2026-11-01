@@ -21,7 +21,11 @@ val BudgetUseCaseModule = module {
         GetBudgetDetailUseCase(
             budgetRepository = get(),
             calculateBudgetUseCase = get(),
-            getTransactionWithFilterUseCase = get()
+            getTransactionWithFilterUseCase = get(),
+            getBudgetTransactionsUseCase = get(),
+            convertAmountUseCase = get(),
+            formatAmountInCurrencyUseCase = get(),
+            getFormattedAmountUseCase = get(),
         )
     }
     single {

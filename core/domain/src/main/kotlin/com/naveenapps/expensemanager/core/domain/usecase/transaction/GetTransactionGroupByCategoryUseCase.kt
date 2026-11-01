@@ -5,11 +5,14 @@ import com.naveenapps.expensemanager.core.domain.usecase.category.GetAllCategory
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertedTotal
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.sum
+import com.naveenapps.expensemanager.core.model.Amount
 import com.naveenapps.expensemanager.core.model.CategoryTransaction
 import com.naveenapps.expensemanager.core.model.CategoryTransactionState
 import com.naveenapps.expensemanager.core.model.CategoryType
 import com.naveenapps.expensemanager.core.model.PieChartData
+import com.naveenapps.expensemanager.core.model.Transaction
 import com.naveenapps.expensemanager.core.model.getDummyPieChartData
 import com.naveenapps.expensemanager.core.model.isTransfer
 import kotlinx.coroutines.flow.Flow
@@ -31,45 +34,12 @@ class GetTransactionGroupByCategoryUseCase(
             getTransactionWithFilterUseCase.invoke(),
         ) { currency, transactions ->
 
-            // Single pass: filter transfers, group by category, filter by type
-            val byCategory = transactions
-                ?.filterNot { it.type.isTransfer() }
-                ?.groupBy { it.category }
-                ?.filterKeys { it.type == categoryType }
-                ?: emptyMap()
-
-            // Compute per-category sums once; derive total from those — no double iteration.
-            // Each transaction is converted from its own currency to the display currency
-            // before summing, so a mix of currencies never gets added together as if they
-            // were the same unit.
-            val categoryAmounts = byCategory.mapValues { (_, txns) ->
-                convertAmountUseCase.total(
-                    txns.map { it.amount.amount to it.fromCurrencyCode },
-                    currency.code,
-                )
-            }
-            // Percentages and the overall total need every category converted; with a rate
-            // missing (or conversion disabled) they're unavailable rather than a partial sum.
-            val totalAmount = categoryAmounts.values.sum()
+            val (categoryTransactions, totalAmount) = transactions.orEmpty().groupByCategory(
+                categoryType = categoryType,
+                currencyCode = currency.code,
+                convertAmountUseCase = convertAmountUseCase,
+            ) { getFormattedAmountUseCase(it, currency) }
             val allAvailable = totalAmount.value != null
-            val totalValue = totalAmount.value ?: 0.0
-
-            val categoryTransactions = byCategory.entries
-                .map { (category, txns) ->
-                    val spent = categoryAmounts.getValue(category)
-                    val spentValue = spent.value
-                    CategoryTransaction(
-                        category = category,
-                        percent = if (allAvailable && spentValue != null && totalValue > 0.0) {
-                            (spentValue / totalValue).toFloat() * 100
-                        } else {
-                            0f
-                        },
-                        amount = getFormattedAmountUseCase(spent, currency),
-                        transaction = txns,
-                    )
-                }
-                .sortedByDescending { it.percent }
 
             val pieChartData: List<PieChartData>
             val newCategoryTransaction: List<CategoryTransaction>
@@ -104,11 +74,53 @@ class GetTransactionGroupByCategoryUseCase(
     }
 }
 
-fun CategoryTransaction.toChartModel(): PieChartData {
-    return PieChartData(
-        name = this.category.name,
-        value = this.percent,
-        color = this.category.storedIcon.backgroundColor,
-        titleResId = this.category.titleResId,
-    )
+fun CategoryTransaction.toChartModel(): PieChartData = PieChartData(
+    name = this.category.name,
+    value = this.percent,
+    color = this.category.storedIcon.backgroundColor,
+    titleResId = this.category.titleResId,
+)
+
+/**
+ * Spending (or income) of [categoryType] per category, largest share first, with the total in
+ * [currencyCode]. Transfers are left out. Each transaction is converted from its own currency
+ * before summing, so a mix of currencies is never added together as if it were one unit; with a
+ * rate missing (or conversion disabled) percentages and the total are unavailable rather than a
+ * partial sum. Shared by the Categories tab and a budget's details.
+ */
+suspend fun List<Transaction>.groupByCategory(
+    categoryType: CategoryType,
+    currencyCode: String,
+    convertAmountUseCase: ConvertAmountUseCase,
+    formatAmount: (ConvertedTotal) -> Amount,
+): Pair<List<CategoryTransaction>, ConvertedTotal> {
+    // Single pass: filter transfers, group by category, filter by type
+    val byCategory = filterNot { it.type.isTransfer() }
+        .groupBy { it.category }
+        .filterKeys { it.type == categoryType }
+
+    // Compute per-category sums once; derive total from those — no double iteration.
+    val categoryAmounts = byCategory.mapValues { (_, txns) ->
+        convertAmountUseCase.total(txns.map { it.amount.amount to it.fromCurrencyCode }, currencyCode)
+    }
+    val totalAmount = categoryAmounts.values.sum()
+    val totalValue = totalAmount.value
+
+    val categoryTransactions = byCategory.entries
+        .map { (category, txns) ->
+            val spent = categoryAmounts.getValue(category)
+            val spentValue = spent.value
+            CategoryTransaction(
+                category = category,
+                percent = if (totalValue != null && spentValue != null && totalValue > 0.0) {
+                    (spentValue / totalValue).toFloat() * 100
+                } else {
+                    0f
+                },
+                amount = formatAmount(spent),
+                transaction = txns,
+            )
+        }
+        .sortedByDescending { it.percent }
+    return categoryTransactions to totalAmount
 }

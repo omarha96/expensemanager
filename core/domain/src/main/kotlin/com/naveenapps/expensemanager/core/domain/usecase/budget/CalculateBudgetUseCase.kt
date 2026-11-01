@@ -48,7 +48,7 @@ class CalculateBudgetUseCase(
             0f
         }
         return budget.toBudgetUiModel(
-            name = budgetName(budget.selectedMonth, budget.periodType),
+            title = budget.title(),
             budgetAmount = getFormattedAmountUseCase(budget.amount, budgetCurrency),
             transactionAmount = getFormattedAmountUseCase(spent, budgetCurrency),
             percent = percent,

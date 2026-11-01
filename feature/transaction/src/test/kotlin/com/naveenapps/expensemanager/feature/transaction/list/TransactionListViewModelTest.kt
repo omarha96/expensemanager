@@ -17,6 +17,7 @@ import com.naveenapps.expensemanager.core.model.Currency
 import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.model.Transaction
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
+import com.naveenapps.expensemanager.core.navigation.ExpenseManagerScreens
 import com.naveenapps.expensemanager.core.repository.ImageStorageRepository
 import com.naveenapps.expensemanager.core.testing.BaseCoroutineTest
 import com.naveenapps.expensemanager.core.testing.FAKE_ACCOUNT
@@ -59,7 +60,9 @@ class TransactionListViewModelTest : BaseCoroutineTest() {
         fromAccount = FAKE_ACCOUNT
     }
 
-    private fun viewModel(transactions: List<Transaction> = listOf(groceries, rent)): TransactionListViewModel {
+    private fun viewModel(
+        transactions: List<Transaction> = listOf(groceries, rent),
+    ): TransactionListViewModel {
         whenever(getCurrencyUseCase.invoke()).thenReturn(flowOf(Currency("$", "USD")))
         whenever(getFormattedAmountUseCase.invoke(any<Double>(), any<Currency>())).thenReturn(Amount(0.0, "$0"))
         whenever(getFormattedAmountUseCase.invoke(any<ConvertedTotal>(), any<Currency>())).thenReturn(Amount(0.0, "$0"))
@@ -99,6 +102,26 @@ class TransactionListViewModelTest : BaseCoroutineTest() {
 
         assertThat(viewModel.state.value.isLoading).isFalse()
         assertThat(viewModel.state.value.ids()).containsExactly("groceries", "rent")
+    }
+
+    @Test
+    fun `tapping a real transaction still opens it for editing`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.processAction(TransactionListAction.OpenEdiTransaction("rent"))
+
+        verify(navigator).navigate(ExpenseManagerScreens.TransactionCreate("rent"))
+    }
+
+    @Test
+    fun `recurring icon opens the recurring transactions list`() = runTest {
+        val viewModel = viewModel()
+        advanceUntilIdle()
+
+        viewModel.processAction(TransactionListAction.OpenRecurringTransactions)
+
+        verify(navigator).navigate(ExpenseManagerScreens.RecurringTransactions)
     }
 
     @Test
