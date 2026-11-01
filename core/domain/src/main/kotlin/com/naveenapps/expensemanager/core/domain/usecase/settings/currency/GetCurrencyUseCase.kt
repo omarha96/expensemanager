@@ -21,11 +21,9 @@ class GetCurrencyUseCase(
     private val lock = Mutex()
     private var symbolsByCode: Map<String, String>? = null
 
-    operator fun invoke(): Flow<Currency> {
-        return repository.getSelectedCurrency().map { currency ->
-            val symbol = currency.code.takeIf { it.isNotBlank() }?.let { symbolFor(it) }
-            if (symbol != null && symbol != currency.symbol) currency.copy(symbol = symbol) else currency
-        }
+    operator fun invoke(): Flow<Currency> = repository.getSelectedCurrency().map { currency ->
+        val symbol = currency.code.takeIf { it.isNotBlank() }?.let { symbolFor(it) }
+        if (symbol != null && symbol != currency.symbol) currency.copy(symbol = symbol) else currency
     }
 
     private suspend fun symbolFor(code: String): String? {

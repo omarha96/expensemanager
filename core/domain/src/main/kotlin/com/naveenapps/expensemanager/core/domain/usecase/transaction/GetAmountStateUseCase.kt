@@ -15,18 +15,16 @@ class GetAmountStateUseCase(
     private val getExpenseAmountUseCase: GetExpenseAmountUseCase,
     private val dispatchers: AppCoroutineDispatchers,
 ) {
-    fun invoke(): Flow<ExpenseFlowState> {
-        return combine(
-            getCurrencyUseCase.invoke(),
-            getIncomeAmountUseCase.invoke(),
-            getExpenseAmountUseCase.invoke(),
-        ) { currency, income, expense ->
-            val balance = income - expense
-            ExpenseFlowState(
-                income = getFormattedAmountUseCase(income, currency).amountString.orEmpty(),
-                expense = getFormattedAmountUseCase(expense, currency).amountString.orEmpty(),
-                balance = getFormattedAmountUseCase(balance, currency).amountString.orEmpty(),
-            )
-        }.flowOn(dispatchers.computation)
-    }
+    fun invoke(): Flow<ExpenseFlowState> = combine(
+        getCurrencyUseCase.invoke(),
+        getIncomeAmountUseCase.invoke(),
+        getExpenseAmountUseCase.invoke(),
+    ) { currency, income, expense ->
+        val balance = income - expense
+        ExpenseFlowState(
+            income = getFormattedAmountUseCase(income, currency).amountString.orEmpty(),
+            expense = getFormattedAmountUseCase(expense, currency).amountString.orEmpty(),
+            balance = getFormattedAmountUseCase(balance, currency).amountString.orEmpty(),
+        )
+    }.flowOn(dispatchers.computation)
 }

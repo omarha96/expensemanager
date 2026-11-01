@@ -22,6 +22,7 @@ import com.naveenapps.expensemanager.core.model.StaticExchangeRate
 import com.naveenapps.expensemanager.core.repository.CurrencyApiRepository
 import com.naveenapps.expensemanager.core.repository.ExchangeRateRepository
 import com.naveenapps.expensemanager.core.testing.BaseCoroutineTest
+import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.TestScope
@@ -33,7 +34,6 @@ import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
-import java.util.UUID
 
 @RunWith(AndroidJUnit4::class)
 class ExchangeRateRepositoryImplTest : BaseCoroutineTest() {
@@ -79,8 +79,7 @@ class ExchangeRateRepositoryImplTest : BaseCoroutineTest() {
 
     private val usdSyp = StaticExchangeRate("USD", "SYP", buy = 138.0, sell = 140.0)
 
-    private suspend fun rate(from: String, to: String, purpose: RatePurpose) =
-        (repository.getRate(from, to, purpose) as RateLookup.Available).rate
+    private suspend fun rate(from: String, to: String, purpose: RatePurpose) = (repository.getRate(from, to, purpose) as RateLookup.Available).rate
 
     @Test
     fun methodDefaultsToDisabledWithoutAProvider() = runTest {

@@ -1,6 +1,5 @@
 package com.naveenapps.expensemanager.core.domain.usecase.account
 
-import kotlinx.coroutines.runBlocking
 import com.google.common.truth.Truth
 import com.naveenapps.expensemanager.core.model.AccountDeleteImpact
 import com.naveenapps.expensemanager.core.model.LastAccountDeletionException
@@ -9,6 +8,7 @@ import com.naveenapps.expensemanager.core.model.StoredIcon
 import com.naveenapps.expensemanager.core.repository.AccountRepository
 import com.naveenapps.expensemanager.core.testing.BaseCoroutineTest
 import com.naveenapps.expensemanager.core.testing.FAKE_ACCOUNT
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.mockito.kotlin.any

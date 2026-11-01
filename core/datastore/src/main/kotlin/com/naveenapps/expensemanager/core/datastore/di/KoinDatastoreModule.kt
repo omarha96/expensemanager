@@ -1,7 +1,7 @@
 import android.content.Context
 import androidx.datastore.preferences.preferencesDataStore
-import com.naveenapps.expensemanager.core.datastore.CurrencyApiDataStore
 import com.naveenapps.expensemanager.core.datastore.AutoBackupDataStore
+import com.naveenapps.expensemanager.core.datastore.CurrencyApiDataStore
 import com.naveenapps.expensemanager.core.datastore.CurrencyDataStore
 import com.naveenapps.expensemanager.core.datastore.DateRangeDataStore
 import com.naveenapps.expensemanager.core.datastore.DeviceLocalDataStore

@@ -44,8 +44,7 @@ class CurrencyDataStore(private val dataStore: DataStore<Preferences>) {
         }
     }
 
-    suspend fun getRestoreCurrencyCode(): String? =
-        dataStore.data.first()[KEY_RESTORE_CURRENCY_CODE]
+    suspend fun getRestoreCurrencyCode(): String? = dataStore.data.first()[KEY_RESTORE_CURRENCY_CODE]
 
     companion object {
         private val KEY_RESTORE_CURRENCY_CODE = stringPreferencesKey("restore_currency_code")

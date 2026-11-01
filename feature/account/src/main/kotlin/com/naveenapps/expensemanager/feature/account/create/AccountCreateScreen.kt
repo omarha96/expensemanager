@@ -52,11 +52,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.naveenapps.expensemanager.core.designsystem.R as DesignSystemR
-import com.naveenapps.expensemanager.core.designsystem.theme.ExpenseManagerPreviewTheme
 import com.naveenapps.designsystem.utils.AppPreviewsLightAndDarkMode
+import com.naveenapps.expensemanager.core.designsystem.R as DesignSystemR
 import com.naveenapps.expensemanager.core.designsystem.components.DeleteDialogItem
 import com.naveenapps.expensemanager.core.designsystem.components.IconAndColorComponent
+import com.naveenapps.expensemanager.core.designsystem.theme.ExpenseManagerPreviewTheme
 import com.naveenapps.expensemanager.core.designsystem.ui.components.AppCardView
 import com.naveenapps.expensemanager.core.designsystem.ui.components.DecimalTextField
 import com.naveenapps.expensemanager.core.designsystem.ui.components.ExpenseManagerTopAppBar
@@ -129,11 +129,13 @@ private fun AccountCreateScaffoldView(
                 dismiss = { onAction.invoke(AccountCreateAction.DismissDeleteDialog) },
                 message = when {
                     impact == null -> null
+
                     impact.transactionCount > 0 -> pluralStringResource(
                         R.plurals.account_delete_message_with_transactions,
                         impact.transactionCount,
                         impact.transactionCount,
                     )
+
                     else -> stringResource(R.string.account_delete_message_no_transactions)
                 },
             )
@@ -164,10 +166,11 @@ private fun AccountCreateScaffoldView(
                 navigationBackClick = {
                     onAction.invoke(AccountCreateAction.ClosePage)
                 },
-                title = if (state.showDeleteButton)
+                title = if (state.showDeleteButton) {
                     stringResource(R.string.edit_account)
-                else
-                    stringResource(R.string.create_account),
+                } else {
+                    stringResource(R.string.create_account)
+                },
                 actions = {
                     if (state.showDeleteButton && state.hasTransactions) {
                         // An account with history can't be deleted, only archived (reversible).
@@ -253,7 +256,7 @@ private fun AccountCreateScreen(
 ) {
     Column(
         modifier = modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         if (isEditMode) {
             LockedAccountDetails(
@@ -270,9 +273,8 @@ private fun AccountCreateScreen(
             ) {
                 AppCardView {
                     Column(
-                        modifier = Modifier.padding(16.dp)
+                        modifier = Modifier.padding(16.dp),
                     ) {
-
                         AccountTypeSelectionView(
                             modifier = Modifier.fillMaxWidth(),
                             selectedAccountType = type.value,
@@ -287,7 +289,7 @@ private fun AccountCreateScreen(
                 AppCardView {
                     Column(
                         modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         StringTextField(
                             modifier = Modifier.fillMaxWidth(),
@@ -328,7 +330,7 @@ private fun AccountCreateScreen(
         SettingsSection(title = stringResource(R.string.appearance)) {
             AppCardView {
                 Column(
-                    modifier = Modifier.padding(16.dp)
+                    modifier = Modifier.padding(16.dp),
                 ) {
                     IconAndColorComponent(
                         modifier = Modifier.fillMaxWidth(),
@@ -356,7 +358,7 @@ private fun ColumnScope.BalanceSectionContent(
     type: TextFieldValue<AccountType>,
     creditLimit: TextFieldValue<String>,
     totalAmount: String,
-    totalAmountBackgroundColor: Int
+    totalAmountBackgroundColor: Int,
 ) {
     DecimalTextField(
         modifier = Modifier.fillMaxWidth(),
@@ -434,18 +436,24 @@ private fun ColumnScope.BalanceSectionContent(
 @Composable
 private fun AccountCreateStatePreview() {
     val nameField = TextFieldValue(
-        value = "", valueError = false, onValueChange = { }
+        value = "",
+        valueError = false,
+        onValueChange = { },
     )
     val selectedColorField = TextFieldValue(
-        value = "#000000", valueError = false, onValueChange = { }
+        value = "#000000",
+        valueError = false,
+        onValueChange = { },
     )
     val selectedIconField = TextFieldValue(
-        value = "account_balance_wallet", valueError = false, onValueChange = { }
+        value = "account_balance_wallet",
+        valueError = false,
+        onValueChange = { },
     )
     val accountField = TextFieldValue(
         value = AccountType.CREDIT,
         valueError = false,
-        onValueChange = { }
+        onValueChange = { },
     )
     ExpenseManagerPreviewTheme(padding = 0.dp) {
         AccountCreateScaffoldView(

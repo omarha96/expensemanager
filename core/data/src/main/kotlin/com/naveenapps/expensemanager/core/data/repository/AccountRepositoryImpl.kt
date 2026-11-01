@@ -8,10 +8,10 @@ import com.naveenapps.expensemanager.core.model.Account
 import com.naveenapps.expensemanager.core.model.AccountDeleteImpact
 import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.repository.AccountRepository
+import java.util.Date
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import java.util.Date
 
 class AccountRepositoryImpl(
     private val accountDao: AccountDao,
@@ -47,31 +47,29 @@ class AccountRepositoryImpl(
         }
     }
 
-    override suspend fun updateAccount(account: Account): Resource<Boolean> =
-        withContext(dispatchers.io) {
-            return@withContext try {
-                val updated = accountDao.updateAppearance(
-                    id = account.id,
-                    iconName = account.storedIcon.name,
-                    iconBackgroundColor = account.storedIcon.backgroundColor,
-                    customImagePath = account.storedIcon.customImagePath,
-                    updatedOn = account.updatedOn,
-                )
-                Resource.Success(updated > 0)
-            } catch (exception: Exception) {
-                Resource.Error(exception)
-            }
+    override suspend fun updateAccount(account: Account): Resource<Boolean> = withContext(dispatchers.io) {
+        return@withContext try {
+            val updated = accountDao.updateAppearance(
+                id = account.id,
+                iconName = account.storedIcon.name,
+                iconBackgroundColor = account.storedIcon.backgroundColor,
+                customImagePath = account.storedIcon.customImagePath,
+                updatedOn = account.updatedOn,
+            )
+            Resource.Success(updated > 0)
+        } catch (exception: Exception) {
+            Resource.Error(exception)
         }
+    }
 
-    override suspend fun updateAllAccount(accounts: List<Account>): Resource<Boolean> =
-        withContext(dispatchers.io) {
-            return@withContext try {
-                accountDao.updateSequences(accounts.associate { it.id to it.sequence })
-                Resource.Success(true)
-            } catch (exception: Exception) {
-                Resource.Error(exception)
-            }
+    override suspend fun updateAllAccount(accounts: List<Account>): Resource<Boolean> = withContext(dispatchers.io) {
+        return@withContext try {
+            accountDao.updateSequences(accounts.associate { it.id to it.sequence })
+            Resource.Success(true)
+        } catch (exception: Exception) {
+            Resource.Error(exception)
         }
+    }
 
     override suspend fun deleteAccount(account: Account): Resource<Boolean> = withContext(dispatchers.io) {
         return@withContext try {
@@ -95,18 +93,16 @@ class AccountRepositoryImpl(
         }
     }
 
-    override suspend fun setAccountArchived(accountId: String, archived: Boolean): Resource<Boolean> =
-        withContext(dispatchers.io) {
-            return@withContext try {
-                val updated = accountDao.setArchived(accountId, archived, Date())
-                Resource.Success(updated > 0)
-            } catch (exception: Exception) {
-                Resource.Error(exception)
-            }
+    override suspend fun setAccountArchived(accountId: String, archived: Boolean): Resource<Boolean> = withContext(dispatchers.io) {
+        return@withContext try {
+            val updated = accountDao.setArchived(accountId, archived, Date())
+            Resource.Success(updated > 0)
+        } catch (exception: Exception) {
+            Resource.Error(exception)
         }
+    }
 
-    override suspend fun hasTransactions(accountId: String): Boolean =
-        withContext(dispatchers.io) {
-            accountDao.hasTransactions(accountId)
-        }
+    override suspend fun hasTransactions(accountId: String): Boolean = withContext(dispatchers.io) {
+        accountDao.hasTransactions(accountId)
+    }
 }

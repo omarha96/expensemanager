@@ -211,14 +211,12 @@ class CurrencyRepositoryImplTest : BaseCoroutineTest() {
     private val lira = "ليرة"
     private val ltrMark = "\u200E"
 
-    private fun formatLira(value: Double, position: CurrencyPosition, symbol: String = lira): String? {
-        return repository.getFormattedCurrency(
-            amount.copy(
-                amount = value,
-                currency = defaultCurrency.copy(symbol = symbol, position = position),
-            ),
-        ).amountString
-    }
+    private fun formatLira(value: Double, position: CurrencyPosition, symbol: String = lira): String? = repository.getFormattedCurrency(
+        amount.copy(
+            amount = value,
+            currency = defaultCurrency.copy(symbol = symbol, position = position),
+        ),
+    ).amountString
 
     @Test
     fun `Given arabic symbol in prefix when formatting then symbol stays before the number`() = runTest {

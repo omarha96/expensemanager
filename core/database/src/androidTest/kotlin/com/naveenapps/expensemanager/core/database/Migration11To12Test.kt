@@ -5,10 +5,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.google.common.truth.Truth.assertThat
+import java.io.IOException
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
-import java.io.IOException
 
 private const val TEST_DB = "migration_test"
 
@@ -79,7 +79,13 @@ class Migration11To12Test {
             .containsAtLeast("from_currency_code", "to_currency_code", "rate_snapshot_id")
         assertThat(db.columns("budget")).contains("currency_code")
         assertThat(db.columns("exchange_rate_snapshot")).containsExactly(
-            "id", "source", "provider", "base_code", "quote_code", "rate", "captured_at",
+            "id",
+            "source",
+            "provider",
+            "base_code",
+            "quote_code",
+            "rate",
+            "captured_at",
         )
         assertThat(db.columns("exchange_rates"))
             .containsExactly("provider", "base_code", "target_code", "rate", "fetched_at")

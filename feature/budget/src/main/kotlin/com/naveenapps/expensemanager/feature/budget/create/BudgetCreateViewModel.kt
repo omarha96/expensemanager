@@ -36,10 +36,10 @@ import java.util.UUID
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -367,13 +367,16 @@ class BudgetCreateViewModel(
             BudgetCreateAction.OpenCurrencySelection -> if (!_state.value.isCurrencyLocked) {
                 _state.update { it.copy(showCurrencySelection = true) }
             }
+
             BudgetCreateAction.DismissCurrencySelection ->
                 _state.update { it.copy(showCurrencySelection = false) }
+
             is BudgetCreateAction.SelectCurrency -> if (!_state.value.isCurrencyLocked) {
                 _state.update {
                     it.copy(currency = action.country.currency, showCurrencySelection = false)
                 }
             }
+
             is BudgetCreateAction.SelectPeriodType -> setPeriodType(action.periodType)
 
             BudgetCreateAction.OpenAccountSelectionDialog -> openAccountSelection()

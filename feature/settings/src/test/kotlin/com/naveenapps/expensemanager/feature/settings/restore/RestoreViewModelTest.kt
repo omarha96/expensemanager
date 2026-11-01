@@ -2,6 +2,7 @@ package com.naveenapps.expensemanager.feature.settings.restore
 
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.SetRestoreCurrencyUseCase
 import com.naveenapps.expensemanager.core.model.AutoBackupSettings
 import com.naveenapps.expensemanager.core.model.BackupFile
 import com.naveenapps.expensemanager.core.model.BackupKind
@@ -17,7 +18,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.SetRestoreCurrencyUseCase
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.anyOrNull

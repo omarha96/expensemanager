@@ -1,7 +1,7 @@
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import com.naveenapps.expensemanager.core.network.ExchangeRateApi
 import com.naveenapps.expensemanager.core.network.ExchangeRateApiImpl
 import com.naveenapps.expensemanager.core.network.ExchangeRateApiService
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient

@@ -1,7 +1,5 @@
 package com.naveenapps.expensemanager.feature.account.list
 
-import org.mockito.kotlin.doSuspendableAnswer
-import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertedTotal
 import app.cash.turbine.test
 import com.google.common.truth.Truth
 import com.naveenapps.expensemanager.core.domain.usecase.account.ArchiveAccountUseCase
@@ -10,6 +8,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.Forma
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertedTotal
 import com.naveenapps.expensemanager.core.model.Account
 import com.naveenapps.expensemanager.core.model.AccountType
 import com.naveenapps.expensemanager.core.model.Amount
@@ -26,6 +25,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doReturn
+import org.mockito.kotlin.doSuspendableAnswer
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.times
 import org.mockito.kotlin.verify
@@ -35,6 +35,7 @@ class AccountListViewModelTest : BaseCoroutineTest() {
 
     private val accountRepository: AccountRepository = mock()
     private val currencyRepository: CurrencyRepository = mock()
+
     // Everything here is in one currency, so a conversion is a plain sum.
     private val convertAmountUseCase: ConvertAmountUseCase = mock {
         onBlocking { total(any(), any()) } doSuspendableAnswer { invocation ->

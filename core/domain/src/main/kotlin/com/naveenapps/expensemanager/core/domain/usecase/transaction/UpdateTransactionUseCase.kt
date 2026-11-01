@@ -38,10 +38,8 @@ class UpdateTransactionUseCase(
         return repository.updateTransaction(transaction)
     }
 
-    private suspend fun touchesArchivedAccount(transaction: Transaction): Boolean {
-        return listOfNotNull(transaction.fromAccountId, transaction.toAccountId).any { id ->
-            (accountRepository.findAccount(id) as? Resource.Success)?.data?.isArchived == true
-        }
+    private suspend fun touchesArchivedAccount(transaction: Transaction): Boolean = listOfNotNull(transaction.fromAccountId, transaction.toAccountId).any { id ->
+        (accountRepository.findAccount(id) as? Resource.Success)?.data?.isArchived == true
     }
 
     private fun isSameDay(first: Date, second: Date): Boolean {

@@ -26,52 +26,50 @@ class GetTransactionGroupByCategoryUseCase(
     private val getFormattedAmountUseCase: GetFormattedAmountUseCase,
     private val getTransactionWithFilterUseCase: GetTransactionWithFilterUseCase,
     private val convertAmountUseCase: ConvertAmountUseCase,
-    private val appCoroutineDispatchers: AppCoroutineDispatchers
+    private val appCoroutineDispatchers: AppCoroutineDispatchers,
 ) {
-    fun invoke(categoryType: CategoryType): Flow<CategoryTransactionState> {
-        return combine(
-            getCurrencyUseCase.invoke(),
-            getTransactionWithFilterUseCase.invoke(),
-        ) { currency, transactions ->
+    fun invoke(categoryType: CategoryType): Flow<CategoryTransactionState> = combine(
+        getCurrencyUseCase.invoke(),
+        getTransactionWithFilterUseCase.invoke(),
+    ) { currency, transactions ->
 
-            val (categoryTransactions, totalAmount) = transactions.orEmpty().groupByCategory(
-                categoryType = categoryType,
-                currencyCode = currency.code,
-                convertAmountUseCase = convertAmountUseCase,
-            ) { getFormattedAmountUseCase(it, currency) }
-            val allAvailable = totalAmount.value != null
+        val (categoryTransactions, totalAmount) = transactions.orEmpty().groupByCategory(
+            categoryType = categoryType,
+            currencyCode = currency.code,
+            convertAmountUseCase = convertAmountUseCase,
+        ) { getFormattedAmountUseCase(it, currency) }
+        val allAvailable = totalAmount.value != null
 
-            val pieChartData: List<PieChartData>
-            val newCategoryTransaction: List<CategoryTransaction>
+        val pieChartData: List<PieChartData>
+        val newCategoryTransaction: List<CategoryTransaction>
 
-            if (categoryTransactions.isEmpty()) {
-                val categories = getAllCategoryUseCase.invoke().firstOrNull()
-                    ?.filter { it.type == categoryType }
-                    .orEmpty()
-                val equalShare = if (categories.isNotEmpty()) 100f / categories.size else 0f
-                newCategoryTransaction = categories.map { category ->
-                    CategoryTransaction(
-                        category = category,
-                        percent = 0f,
-                        amount = getFormattedAmountUseCase.invoke(amount = 0.0, currency = currency),
-                        transaction = emptyList(),
-                    )
-                }
-                pieChartData = categories.map { getDummyPieChartData(it.name, equalShare, it.titleResId) }
-            } else {
-                newCategoryTransaction = categoryTransactions
-                pieChartData = categoryTransactions.map { it.toChartModel() }
+        if (categoryTransactions.isEmpty()) {
+            val categories = getAllCategoryUseCase.invoke().firstOrNull()
+                ?.filter { it.type == categoryType }
+                .orEmpty()
+            val equalShare = if (categories.isNotEmpty()) 100f / categories.size else 0f
+            newCategoryTransaction = categories.map { category ->
+                CategoryTransaction(
+                    category = category,
+                    percent = 0f,
+                    amount = getFormattedAmountUseCase.invoke(amount = 0.0, currency = currency),
+                    transaction = emptyList(),
+                )
             }
+            pieChartData = categories.map { getDummyPieChartData(it.name, equalShare, it.titleResId) }
+        } else {
+            newCategoryTransaction = categoryTransactions
+            pieChartData = categoryTransactions.map { it.toChartModel() }
+        }
 
-            CategoryTransactionState(
-                pieChartData = pieChartData,
-                totalAmount = getFormattedAmountUseCase(totalAmount, currency),
-                categoryTransactions = newCategoryTransaction,
-                hideValues = categoryTransactions.isEmpty() || !allAvailable,
-                categoryType = categoryType,
-            )
-        }.flowOn(appCoroutineDispatchers.computation)
-    }
+        CategoryTransactionState(
+            pieChartData = pieChartData,
+            totalAmount = getFormattedAmountUseCase(totalAmount, currency),
+            categoryTransactions = newCategoryTransaction,
+            hideValues = categoryTransactions.isEmpty() || !allAvailable,
+            categoryType = categoryType,
+        )
+    }.flowOn(appCoroutineDispatchers.computation)
 }
 
 fun CategoryTransaction.toChartModel(): PieChartData = PieChartData(

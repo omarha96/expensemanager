@@ -213,6 +213,7 @@ class SettingsViewModel(
             SettingAction.OpenCurrencyEdit -> openCurrencyCustomiseScreen()
 
             SettingAction.OpenExchangeMethod -> openExchangeMethodScreen()
+
             SettingAction.OpenExport -> openExportScreen()
 
             SettingAction.OpenRecurringTransactions ->

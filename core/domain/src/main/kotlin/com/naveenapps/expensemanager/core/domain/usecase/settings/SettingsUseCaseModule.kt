@@ -32,7 +32,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.settings.theme.SaveThem
 import org.koin.dsl.module
 
 val SettingsUseCaseModule = module {
-    //Currency
+    // Currency
     single { GetCurrencyUseCase(repository = get(), countryRepository = get()) }
     single { GetDefaultCurrencyUseCase(get()) }
     single { GetFormattedAmountUseCase(get()) }
@@ -40,7 +40,7 @@ val SettingsUseCaseModule = module {
     single { SetRestoreCurrencyUseCase(get()) }
     single { FormatAmountInCurrencyUseCase(countryRepository = get(), currencyRepository = get()) }
 
-    //Currency API profile
+    // Currency API profile
     single { GetCurrencyApiProfileUseCase(get()) }
     single { SaveCurrencyApiProfileUseCase(get()) }
     single { FetchLatestExchangeRatesUseCase(get()) }

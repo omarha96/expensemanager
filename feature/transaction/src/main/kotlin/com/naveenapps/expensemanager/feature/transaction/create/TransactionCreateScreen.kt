@@ -87,8 +87,8 @@ import com.naveenapps.expensemanager.core.model.Amount
 import com.naveenapps.expensemanager.core.model.Category
 import com.naveenapps.expensemanager.core.model.CategoryType
 import com.naveenapps.expensemanager.core.model.Currency
-import com.naveenapps.expensemanager.core.model.RecurringFrequency
 import com.naveenapps.expensemanager.core.model.ExchangeRateSource
+import com.naveenapps.expensemanager.core.model.RecurringFrequency
 import com.naveenapps.expensemanager.core.model.ReminderTimeState
 import com.naveenapps.expensemanager.core.model.StoredIcon
 import com.naveenapps.expensemanager.core.model.TextFieldValue
@@ -807,15 +807,19 @@ private fun ExchangeRateSection(
             )
             val sourceText = when {
                 rate.isLoading -> stringResource(R.string.exchange_rate_loading)
+
                 rate.source == ExchangeRateSource.FETCHED && rate.provider != null ->
                     stringResource(
                         R.string.exchange_rate_fetched_from,
                         rate.provider,
                         rate.fetchedAt?.let { formatRateTime(it) }.orEmpty(),
                     )
+
                 rate.source == ExchangeRateSource.STATIC ->
                     stringResource(R.string.exchange_rate_fixed)
+
                 rate.hint != null -> rate.hint
+
                 else -> stringResource(R.string.exchange_rate_entered_by_you)
             }
             Text(
@@ -848,5 +852,4 @@ private fun ExchangeRateSection(
     }
 }
 
-private fun formatRateTime(epochMillis: Long): String =
-    java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(Date(epochMillis))
+private fun formatRateTime(epochMillis: Long): String = java.text.DateFormat.getTimeInstance(java.text.DateFormat.SHORT).format(Date(epochMillis))

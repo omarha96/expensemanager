@@ -80,8 +80,7 @@ class CheckTransactionValidationUseCase(
         return Resource.Success(true)
     }
 
-    private suspend fun findAccount(id: String): Account? =
-        (accountRepository.findAccount(id) as? Resource.Success)?.data
+    private suspend fun findAccount(id: String): Account? = (accountRepository.findAccount(id) as? Resource.Success)?.data
 
     private fun error(message: String) = Resource.Error(Exception(message))
 

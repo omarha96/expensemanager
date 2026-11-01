@@ -30,7 +30,9 @@ class GetCurrentExchangeRateUseCase(
         }
         return when (val lookup = repository.getRate(fromCode, toCode, RatePurpose.TRANSFER)) {
             is RateLookup.Available -> SuggestedRate.Suggested(lookup)
+
             RateLookup.Disabled -> SuggestedRate.None(SuggestedRate.Reason.DISABLED)
+
             RateLookup.Unavailable -> SuggestedRate.None(
                 if (method == ExchangeMethod.STATIC) {
                     SuggestedRate.Reason.NO_FIXED_RATE

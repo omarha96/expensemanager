@@ -23,8 +23,7 @@ internal object BuySellQuotesAdapter : ExchangeRateProviderAdapter {
     const val SYP = "SYP"
     private const val OLD_TO_NEW_LIRA = 100.0
 
-    override fun buildUrl(profile: CurrencyApiProfile, baseCurrencyCode: String): String =
-        profile.baseUrl.trim()
+    override fun buildUrl(profile: CurrencyApiProfile, baseCurrencyCode: String): String = profile.baseUrl.trim()
 
     override fun parseRates(
         body: JsonObject,

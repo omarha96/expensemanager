@@ -102,9 +102,13 @@ class AccountListViewModel(
     fun processAction(action: AccountListAction) {
         when (action) {
             AccountListAction.ClosePage -> closePage()
+
             AccountListAction.CreateAccount -> openCreateScreen(null)
+
             is AccountListAction.EditAccount -> openCreateScreen(action.accountUiModel)
+
             AccountListAction.OpenReOrder -> openAccountReOrderScreen()
+
             is AccountListAction.Unarchive -> viewModelScope.launch {
                 archiveAccountUseCase(action.accountUiModel.id, archived = false)
             }

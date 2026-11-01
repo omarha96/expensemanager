@@ -120,9 +120,8 @@ class ProcessRecurringTransactionsUseCase(
         created
     }
 
-    private suspend fun currencyCodeOf(accountId: String): String? =
-        (accountRepository.findAccount(accountId) as? Resource.Success)?.data?.currencyCode
-            ?.takeIf { it.isNotBlank() }
+    private suspend fun currencyCodeOf(accountId: String): String? = (accountRepository.findAccount(accountId) as? Resource.Success)?.data?.currencyCode
+        ?.takeIf { it.isNotBlank() }
 
     private fun RecurringTransaction.toTransaction(
         index: Int,

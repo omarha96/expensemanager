@@ -159,10 +159,13 @@ class DashboardViewModel(
                     conversionNote = when {
                         balanceTotal.conversionDisabled && balanceTotal.value == null ->
                             ConversionNote.NOT_CONVERTED
+
                         incomeTotal.usedFixedRates || expenseTotal.usedFixedRates ->
                             ConversionNote.FIXED_RATES
+
                         incomeTotal.usedConversion || expenseTotal.usedConversion ->
                             ConversionNote.CURRENT_RATES
+
                         else -> null
                     },
                     transactions = filteredTransactions,

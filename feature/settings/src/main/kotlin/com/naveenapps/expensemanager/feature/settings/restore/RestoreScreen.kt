@@ -46,14 +46,14 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.naveenapps.expensemanager.core.designsystem.ui.components.ExpenseManagerTopAppBar
 import com.naveenapps.expensemanager.core.designsystem.utils.ObserveAsEvents
+import com.naveenapps.expensemanager.feature.country.CountryCurrencySelectionBottomSheet
+import com.naveenapps.expensemanager.feature.country.CountrySelectionEvent
 import com.naveenapps.expensemanager.feature.settings.R
 import com.naveenapps.expensemanager.feature.settings.autobackup.BackupCard
 import com.naveenapps.expensemanager.feature.settings.autobackup.BackupFileRow
 import com.naveenapps.expensemanager.feature.settings.autobackup.BackupSectionHeader
 import com.naveenapps.expensemanager.feature.settings.autobackup.CircleIcon
 import com.naveenapps.expensemanager.feature.settings.autobackup.EmptyBackupsText
-import com.naveenapps.expensemanager.feature.country.CountryCurrencySelectionBottomSheet
-import com.naveenapps.expensemanager.feature.country.CountrySelectionEvent
 import com.naveenapps.expensemanager.feature.settings.autobackup.PassphraseDialog
 import com.naveenapps.expensemanager.feature.settings.autobackup.rememberBackupTimeFormatter
 import kotlinx.coroutines.launch
@@ -140,6 +140,7 @@ private fun RestoreContent(
             onEvent = { event ->
                 when (event) {
                     CountrySelectionEvent.Dismiss -> onAction(RestoreAction.DismissRestoreCurrency)
+
                     is CountrySelectionEvent.CountrySelected ->
                         onAction(RestoreAction.ConfirmRestoreCurrency(event.country.currency.code))
                 }

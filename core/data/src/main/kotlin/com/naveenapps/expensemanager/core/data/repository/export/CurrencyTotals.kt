@@ -15,17 +15,15 @@ internal data class CurrencyTotals(
     val net: Double get() = income - expense
 }
 
-internal fun List<Transaction>.totalsByCurrency(): List<CurrencyTotals> =
-    groupBy { it.fromCurrencyCode }
-        .map { (code, items) ->
-            CurrencyTotals(
-                currencyCode = code,
-                income = items.filter { it.type == TransactionType.INCOME }.sumOf { it.amount.amount },
-                expense = items.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount.amount },
-            )
-        }
-        .sortedBy { it.currencyCode }
+internal fun List<Transaction>.totalsByCurrency(): List<CurrencyTotals> = groupBy { it.fromCurrencyCode }
+    .map { (code, items) ->
+        CurrencyTotals(
+            currencyCode = code,
+            income = items.filter { it.type == TransactionType.INCOME }.sumOf { it.amount.amount },
+            expense = items.filter { it.type == TransactionType.EXPENSE }.sumOf { it.amount.amount },
+        )
+    }
+    .sortedBy { it.currencyCode }
 
 /** What the destination account received, for a cross-currency transfer; else null. */
-internal fun Transaction.receivedAmount(): Double? =
-    rateSnapshot?.let { amount.amount * it.rate }
+internal fun Transaction.receivedAmount(): Double? = rateSnapshot?.let { amount.amount * it.rate }

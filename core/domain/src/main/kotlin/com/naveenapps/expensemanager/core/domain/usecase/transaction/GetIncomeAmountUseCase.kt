@@ -13,17 +13,15 @@ class GetIncomeAmountUseCase(
     private val convertAmountUseCase: ConvertAmountUseCase,
 ) {
 
-    operator fun invoke(): Flow<ConvertedTotal> {
-        return combine(
-            getTransactionWithFilterUseCase.invoke(),
-            getCurrencyUseCase.invoke(),
-        ) { transactions, currency ->
-            convertAmountUseCase.total(
-                amounts = transactions.orEmpty()
-                    .filter { it.type == TransactionType.INCOME }
-                    .map { it.amount.amount to it.fromCurrencyCode },
-                toCode = currency.code,
-            )
-        }
+    operator fun invoke(): Flow<ConvertedTotal> = combine(
+        getTransactionWithFilterUseCase.invoke(),
+        getCurrencyUseCase.invoke(),
+    ) { transactions, currency ->
+        convertAmountUseCase.total(
+            amounts = transactions.orEmpty()
+                .filter { it.type == TransactionType.INCOME }
+                .map { it.amount.amount to it.fromCurrencyCode },
+            toCode = currency.code,
+        )
     }
 }

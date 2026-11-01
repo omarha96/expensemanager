@@ -1,11 +1,11 @@
 package com.naveenapps.expensemanager.core.network
 
 import com.naveenapps.expensemanager.core.model.CurrencyApiPreset
+import com.naveenapps.expensemanager.core.network.adapters.BuySellQuotesAdapter
 import com.naveenapps.expensemanager.core.network.adapters.CustomAdapter
 import com.naveenapps.expensemanager.core.network.adapters.ExchangeRateHostAdapter
 import com.naveenapps.expensemanager.core.network.adapters.FrankfurterAdapter
 import com.naveenapps.expensemanager.core.network.adapters.OpenExchangeRatesAdapter
-import com.naveenapps.expensemanager.core.network.adapters.BuySellQuotesAdapter
 
 /** Registry mapping each [CurrencyApiPreset] to the adapter that knows its request/response shape. */
 internal object ExchangeRateProviderAdapters {

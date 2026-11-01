@@ -11,12 +11,11 @@ import kotlinx.coroutines.flow.map
 class ExchangeMethodDataStore(private val dataStore: DataStore<Preferences>) {
 
     /** The method the user picked, or null while they haven't picked one. */
-    fun getMethod(): Flow<ExchangeMethod?> =
-        dataStore.data.map { preferences ->
-            preferences[KEY_METHOD]?.let { name ->
-                runCatching { ExchangeMethod.valueOf(name) }.getOrNull()
-            }
+    fun getMethod(): Flow<ExchangeMethod?> = dataStore.data.map { preferences ->
+        preferences[KEY_METHOD]?.let { name ->
+            runCatching { ExchangeMethod.valueOf(name) }.getOrNull()
         }
+    }
 
     suspend fun setMethod(method: ExchangeMethod) {
         dataStore.edit { preferences -> preferences[KEY_METHOD] = method.name }

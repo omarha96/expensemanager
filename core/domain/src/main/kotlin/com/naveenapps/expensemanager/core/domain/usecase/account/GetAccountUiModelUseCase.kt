@@ -11,14 +11,12 @@ import com.naveenapps.expensemanager.core.model.toAccountUiModel
 class GetAccountUiModelUseCase(
     private val formatAmountInCurrencyUseCase: FormatAmountInCurrencyUseCase,
 ) {
-    suspend operator fun invoke(account: Account): AccountUiModel {
-        return account.toAccountUiModel(
-            formatAmountInCurrencyUseCase(account.amount, account.currencyCode),
-            if (account.type == AccountType.CREDIT) {
-                formatAmountInCurrencyUseCase(account.getAvailableCreditLimit(), account.currencyCode)
-            } else {
-                null
-            },
-        )
-    }
+    suspend operator fun invoke(account: Account): AccountUiModel = account.toAccountUiModel(
+        formatAmountInCurrencyUseCase(account.amount, account.currencyCode),
+        if (account.type == AccountType.CREDIT) {
+            formatAmountInCurrencyUseCase(account.getAvailableCreditLimit(), account.currencyCode)
+        } else {
+            null
+        },
+    )
 }

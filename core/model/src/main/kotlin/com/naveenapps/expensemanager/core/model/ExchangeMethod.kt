@@ -26,9 +26,8 @@ data class StaticExchangeRate(
 ) {
     val mid: Double get() = (buy + sell) / 2
 
-    fun isSamePair(firstCode: String, secondCode: String): Boolean =
-        (baseCode == firstCode && quoteCode == secondCode) ||
-            (baseCode == secondCode && quoteCode == firstCode)
+    fun isSamePair(firstCode: String, secondCode: String): Boolean = (baseCode == firstCode && quoteCode == secondCode) ||
+        (baseCode == secondCode && quoteCode == firstCode)
 }
 
 /** What a rate is needed for; a static pair answers each with a different value. */

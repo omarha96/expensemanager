@@ -120,24 +120,33 @@ class ExchangeMethodViewModel(
     /** Blank or unreadable text becomes 0, which the save validation rejects. */
     private fun String.toRate(): Double = replace(",", "").trim().toDoubleOrNull() ?: 0.0
 
-    private fun Double.toRateText(): String =
-        if (this == toLong().toDouble()) toLong().toString() else toString()
+    private fun Double.toRateText(): String = if (this == toLong().toDouble()) toLong().toString() else toString()
 
     fun processAction(action: ExchangeMethodAction) {
         when (action) {
             ExchangeMethodAction.ClosePage -> appComposeNavigator.popBackStack()
+
             is ExchangeMethodAction.SelectMethod -> selectMethod(action.method)
+
             ExchangeMethodAction.OpenApiProfile ->
                 appComposeNavigator.navigate(ExpenseManagerScreens.CurrencyApiProfileScreen)
 
             ExchangeMethodAction.AddStaticRate -> openEditor(null)
+
             is ExchangeMethodAction.EditStaticRate -> openEditor(action.rate)
+
             is ExchangeMethodAction.DeleteStaticRate -> deleteStaticRate(action.rate)
+
             is ExchangeMethodAction.ChangeEditorBase -> updateEditor { it.copy(baseCode = action.code) }
+
             is ExchangeMethodAction.ChangeEditorQuote -> updateEditor { it.copy(quoteCode = action.code) }
+
             is ExchangeMethodAction.ChangeEditorBuy -> updateEditor { it.copy(buyText = action.text) }
+
             is ExchangeMethodAction.ChangeEditorSell -> updateEditor { it.copy(sellText = action.text) }
+
             ExchangeMethodAction.SaveEditor -> saveEditor()
+
             ExchangeMethodAction.DismissEditor -> _state.update { it.copy(editor = null) }
         }
     }

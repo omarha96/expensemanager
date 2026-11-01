@@ -19,16 +19,14 @@ class GetBudgetsUseCase(
     private val budgetRepository: BudgetRepository,
     private val getTransactionWithFilterUseCase: GetTransactionWithFilterUseCase,
     private val calculateBudgetUseCase: CalculateBudgetUseCase,
-    private val appCoroutineDispatchers: AppCoroutineDispatchers
+    private val appCoroutineDispatchers: AppCoroutineDispatchers,
 ) {
-    operator fun invoke(): Flow<List<BudgetUiModel>> {
-        return combine(
-            getTransactionWithFilterUseCase.invoke(),
-            budgetRepository.getBudgets(),
-        ) { _, budgets ->
-            budgets.map { budget -> calculateBudgetUseCase(budget) }
-        }.flowOn(appCoroutineDispatchers.computation)
-    }
+    operator fun invoke(): Flow<List<BudgetUiModel>> = combine(
+        getTransactionWithFilterUseCase.invoke(),
+        budgetRepository.getBudgets(),
+    ) { _, budgets ->
+        budgets.map { budget -> calculateBudgetUseCase(budget) }
+    }.flowOn(appCoroutineDispatchers.computation)
 }
 
 fun Budget.toBudgetUiModel(

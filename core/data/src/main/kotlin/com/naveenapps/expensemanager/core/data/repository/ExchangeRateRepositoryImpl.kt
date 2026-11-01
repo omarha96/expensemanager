@@ -41,26 +41,23 @@ class ExchangeRateRepositoryImpl(
         methodDataStore.setMethod(method)
     }
 
-    override fun getStaticRates(): Flow<List<StaticExchangeRate>> =
-        staticExchangeRateDao.getAll().map { rates -> rates.map { it.toModel() } }
+    override fun getStaticRates(): Flow<List<StaticExchangeRate>> = staticExchangeRateDao.getAll().map { rates -> rates.map { it.toModel() } }
 
-    override suspend fun saveStaticRate(rate: StaticExchangeRate): Unit =
-        withContext(dispatchers.io) {
-            staticExchangeRateDao.replacePair(
-                StaticExchangeRateEntity(
-                    baseCode = rate.baseCode,
-                    quoteCode = rate.quoteCode,
-                    buy = rate.buy,
-                    sell = rate.sell,
-                    updatedOn = clock(),
-                ),
-            )
-        }
+    override suspend fun saveStaticRate(rate: StaticExchangeRate): Unit = withContext(dispatchers.io) {
+        staticExchangeRateDao.replacePair(
+            StaticExchangeRateEntity(
+                baseCode = rate.baseCode,
+                quoteCode = rate.quoteCode,
+                buy = rate.buy,
+                sell = rate.sell,
+                updatedOn = clock(),
+            ),
+        )
+    }
 
-    override suspend fun deleteStaticRate(baseCode: String, quoteCode: String): Unit =
-        withContext(dispatchers.io) {
-            staticExchangeRateDao.deletePair(baseCode, quoteCode)
-        }
+    override suspend fun deleteStaticRate(baseCode: String, quoteCode: String): Unit = withContext(dispatchers.io) {
+        staticExchangeRateDao.deletePair(baseCode, quoteCode)
+    }
 
     override fun observeConfiguration(): Flow<Unit> = combine(
         getMethod(),
@@ -75,7 +72,9 @@ class ExchangeRateRepositoryImpl(
     ): RateLookup = withContext(dispatchers.io) {
         when (getMethod().first()) {
             ExchangeMethod.DISABLED -> RateLookup.Disabled
+
             ExchangeMethod.STATIC -> staticRate(fromCode, toCode, purpose)
+
             ExchangeMethod.API -> currencyApiRepository.getRate(fromCode, toCode)?.let {
                 RateLookup.Available(
                     rate = it.rate,

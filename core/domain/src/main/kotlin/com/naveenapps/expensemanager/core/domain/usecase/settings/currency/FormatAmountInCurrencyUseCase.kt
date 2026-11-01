@@ -20,11 +20,9 @@ class FormatAmountInCurrencyUseCase(
     private val lock = Mutex()
     private var currenciesByCode: Map<String, Currency>? = null
 
-    suspend operator fun invoke(amount: Double, currencyCode: String): Amount {
-        return currencyRepository.getFormattedCurrency(
-            Amount(amount = amount, currency = currencyFor(currencyCode)),
-        )
-    }
+    suspend operator fun invoke(amount: Double, currencyCode: String): Amount = currencyRepository.getFormattedCurrency(
+        Amount(amount = amount, currency = currencyFor(currencyCode)),
+    )
 
     suspend fun currencyFor(currencyCode: String): Currency {
         val known = lock.withLock {

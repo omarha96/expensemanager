@@ -5,13 +5,13 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.naveenapps.expensemanager.core.designsystem.R as DesignSystemR
+import com.naveenapps.expensemanager.core.domain.usecase.account.GetAccountUiModelUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.account.GetAllAccountsUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.category.GetAllCategoryUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.recurring.CreateRecurringTransactionUseCase
-import com.naveenapps.expensemanager.core.domain.usecase.account.GetAccountUiModelUseCase
-import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.recurring.FindRecurringTransactionByIdUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.recurring.ProcessRecurringTransactionsUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetDefaultCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
@@ -25,9 +25,9 @@ import com.naveenapps.expensemanager.core.model.AccountUiModel
 import com.naveenapps.expensemanager.core.model.Amount
 import com.naveenapps.expensemanager.core.model.Category
 import com.naveenapps.expensemanager.core.model.CategoryType
+import com.naveenapps.expensemanager.core.model.Currency
 import com.naveenapps.expensemanager.core.model.ExchangeRateSnapshot
 import com.naveenapps.expensemanager.core.model.ExchangeRateSource
-import com.naveenapps.expensemanager.core.model.Currency
 import com.naveenapps.expensemanager.core.model.RecurringFrequency
 import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.model.StoredIcon
@@ -374,28 +374,26 @@ class TransactionCreateViewModel(
     internal fun buildTransactionFromState(
         state: TransactionCreateState,
         amountValue: Double,
-    ): Transaction {
-        return Transaction(
-            id = editingTransaction?.id ?: UUID.randomUUID().toString(),
-            notes = state.notes.value,
-            categoryId = state.selectedCategory.id,
-            fromAccountId = state.selectedFromAccount.id,
-            toAccountId = if (state.transactionType.isTransfer()) state.selectedToAccount.id else null,
-            type = state.transactionType,
-            amount = Amount(amountValue),
-            imagePath = "",
-            createdOn = state.dateTime,
-            updatedOn = Calendar.getInstance().time,
-            attachments = state.attachments,
-            fromCurrencyCode = state.selectedFromAccount.currencyCode,
-            toCurrencyCode = if (state.transactionType.isTransfer()) {
-                state.selectedToAccount.currencyCode
-            } else {
-                state.selectedFromAccount.currencyCode
-            },
-            rateSnapshot = state.exchangeRate?.toSnapshot(),
-        )
-    }
+    ): Transaction = Transaction(
+        id = editingTransaction?.id ?: UUID.randomUUID().toString(),
+        notes = state.notes.value,
+        categoryId = state.selectedCategory.id,
+        fromAccountId = state.selectedFromAccount.id,
+        toAccountId = if (state.transactionType.isTransfer()) state.selectedToAccount.id else null,
+        type = state.transactionType,
+        amount = Amount(amountValue),
+        imagePath = "",
+        createdOn = state.dateTime,
+        updatedOn = Calendar.getInstance().time,
+        attachments = state.attachments,
+        fromCurrencyCode = state.selectedFromAccount.currencyCode,
+        toCurrencyCode = if (state.transactionType.isTransfer()) {
+            state.selectedToAccount.currencyCode
+        } else {
+            state.selectedFromAccount.currencyCode
+        },
+        rateSnapshot = state.exchangeRate?.toSnapshot(),
+    )
 
     /**
      * The snapshot to store: the transaction's existing one while untouched, a clone of the
@@ -414,13 +412,15 @@ class TransactionCreateViewModel(
             baseCode = baseCode,
             quoteCode = quoteCode,
             rate = rate,
-            capturedAt = if (keptSuggested) fetchedAt ?: System.currentTimeMillis()
-            else System.currentTimeMillis(),
+            capturedAt = if (keptSuggested) {
+                fetchedAt ?: System.currentTimeMillis()
+            } else {
+                System.currentTimeMillis()
+            },
         )
     }
 
-    private fun parseRate(text: String): Double? =
-        numberFormatRepository.parseToDouble(text)?.takeIf { it.isFinite() && it > 0.0 }
+    private fun parseRate(text: String): Double? = numberFormatRepository.parseToDouble(text)?.takeIf { it.isFinite() && it > 0.0 }
 
     private fun persistTransaction(transaction: Transaction) {
         val isNewTransaction = editingTransaction == null
@@ -945,7 +945,9 @@ class TransactionCreateViewModel(
             }
 
             is TransactionCreateAction.RemoveAttachment -> removeAttachment(action.path)
+
             is TransactionCreateAction.ChangeExchangeRate -> changeExchangeRate(action.rateText)
+
             TransactionCreateAction.UseFetchedExchangeRate -> useFetchedExchangeRate()
         }
     }

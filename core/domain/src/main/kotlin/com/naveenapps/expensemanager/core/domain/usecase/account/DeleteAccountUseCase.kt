@@ -36,5 +36,4 @@ class DeleteAccountUseCase(
     }
 }
 
-class AccountHasTransactionsException :
-    Exception("This account has transactions, so it can only be archived, not deleted")
+class AccountHasTransactionsException : Exception("This account has transactions, so it can only be archived, not deleted")

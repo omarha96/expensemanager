@@ -362,8 +362,7 @@ private fun CurrencyCodeField(
     }
 }
 
-private fun Double.toDisplayRate(): String =
-    if (this == toLong().toDouble()) toLong().toString() else toString()
+private fun Double.toDisplayRate(): String = if (this == toLong().toDouble()) toLong().toString() else toString()
 
 @Preview
 @Composable

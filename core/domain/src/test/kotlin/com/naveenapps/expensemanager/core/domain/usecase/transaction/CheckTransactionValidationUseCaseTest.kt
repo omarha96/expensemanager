@@ -10,11 +10,11 @@ import com.naveenapps.expensemanager.core.testing.BaseCoroutineTest
 import com.naveenapps.expensemanager.core.testing.FAKE_ACCOUNT
 import com.naveenapps.expensemanager.core.testing.FAKE_EXPENSE_TRANSACTION
 import com.naveenapps.expensemanager.core.testing.FAKE_SECOND_ACCOUNT
+import java.util.Date
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
-import java.util.Date
 
 class CheckTransactionValidationUseCaseTest : BaseCoroutineTest() {
 

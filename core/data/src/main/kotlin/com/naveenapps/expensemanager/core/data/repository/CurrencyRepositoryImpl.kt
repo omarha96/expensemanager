@@ -52,9 +52,7 @@ class CurrencyRepositoryImpl(
         dataStore.getRestoreCurrencyCode()
     }
 
-    override fun getSelectedCurrency(): Flow<Currency> {
-        return dataStore.getCurrency(defaultCurrency = getDefaultCurrency())
-    }
+    override fun getSelectedCurrency(): Flow<Currency> = dataStore.getCurrency(defaultCurrency = getDefaultCurrency())
 
     override fun getFormattedCurrency(amount: Amount): Amount {
         val currency = amount.currency ?: getDefaultCurrency()
@@ -70,7 +68,6 @@ class CurrencyRepositoryImpl(
         currency: Currency,
         amount: Double,
     ): String {
-
         // The sign is placed explicitly below, so format the number without it.
         val formatted = numberFormatRepository.formatForDisplay(amount)
         val isNegative = formatted.contains(MINUS_SYMBOL)
@@ -96,10 +93,10 @@ class CurrencyRepositoryImpl(
             CurrencyPosition.PREFIX -> {
                 if (separator.isEmpty()) {
                     // Sign-like symbol: the minus leads the whole amount (-$100).
-                    "$sign${currency.symbol}${currencyFormatted}"
+                    "$sign${currency.symbol}$currencyFormatted"
                 } else {
                     // Word symbol: the minus belongs to the number (ليرة -208), not the word.
-                    "$mark${currency.symbol}$mark$separator$sign${currencyFormatted}"
+                    "$mark${currency.symbol}$mark$separator$sign$currencyFormatted"
                 }
             }
 

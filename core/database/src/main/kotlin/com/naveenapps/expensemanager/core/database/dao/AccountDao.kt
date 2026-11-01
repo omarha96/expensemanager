@@ -4,8 +4,8 @@ import androidx.room.Dao
 import androidx.room.Query
 import androidx.room.Transaction
 import com.naveenapps.expensemanager.core.database.entity.AccountEntity
-import kotlinx.coroutines.flow.Flow
 import java.util.Date
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Accounts are immutable after creation except for their appearance, list order and archived
@@ -27,6 +27,7 @@ interface AccountDao : BaseDao<AccountEntity> {
     // Both sides count: transfers into this account are cascade-deleted with it too.
     @Query("SELECT COUNT(*) FROM `transaction` WHERE from_account_id = :id OR to_account_id = :id")
     suspend fun getTransactionCount(id: String): Int
+
     @Query(
         "UPDATE account SET icon_name = :iconName, icon_background_color = :iconBackgroundColor, " +
             "custom_image_path = :customImagePath, updated_on = :updatedOn WHERE id = :id",

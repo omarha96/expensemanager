@@ -40,7 +40,7 @@ val BudgetUseCaseModule = module {
             budgetRepository = get(),
             getTransactionWithFilterUseCase = get(),
             calculateBudgetUseCase = get(),
-            appCoroutineDispatchers = get()
+            appCoroutineDispatchers = get(),
         )
     }
     single {

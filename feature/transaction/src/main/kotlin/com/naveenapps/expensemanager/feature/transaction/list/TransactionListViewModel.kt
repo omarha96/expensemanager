@@ -6,12 +6,12 @@ import com.naveenapps.expensemanager.core.common.utils.AppCoroutineDispatchers
 import com.naveenapps.expensemanager.core.common.utils.getAmountTextColor
 import com.naveenapps.expensemanager.core.common.utils.toCompleteDateWithDate
 import com.naveenapps.expensemanager.core.designsystem.R as DesignSystemR
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.AddTransactionUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.DeleteTransactionUseCase
-import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
-import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.GetTransactionWithFilterUseCase
 import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.model.Transaction
@@ -182,14 +182,13 @@ class TransactionListViewModel(
 internal fun Transaction.matches(query: String): Boolean = matchesSearch(query, listOf(notes, category.name, fromAccount.name, toAccount?.name))
 
 /** (signed amount, currency) per income/expense; transfers don't change the net. */
-fun List<Transaction>.toSignedAmounts(): List<Pair<Double, String>> =
-    this.mapNotNull {
-        when (it.type) {
-            TransactionType.INCOME -> it.amount.amount to it.fromCurrencyCode
-            TransactionType.EXPENSE -> -it.amount.amount to it.fromCurrencyCode
-            TransactionType.TRANSFER -> null
-        }
+fun List<Transaction>.toSignedAmounts(): List<Pair<Double, String>> = this.mapNotNull {
+    when (it.type) {
+        TransactionType.INCOME -> it.amount.amount to it.fromCurrencyCode
+        TransactionType.EXPENSE -> -it.amount.amount to it.fromCurrencyCode
+        TransactionType.TRANSFER -> null
     }
+}
 
 fun List<TransactionGroup>.convertGroupToTransactionListItems(): List<TransactionListItem> = buildList {
     this@convertGroupToTransactionListItems.forEach {

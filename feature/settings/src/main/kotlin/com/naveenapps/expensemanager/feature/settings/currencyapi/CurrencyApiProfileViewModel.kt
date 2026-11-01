@@ -9,8 +9,8 @@ import com.naveenapps.expensemanager.core.model.Resource
 import com.naveenapps.expensemanager.core.navigation.AppComposeNavigator
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -65,7 +65,9 @@ class CurrencyApiProfileViewModel(
     fun processAction(action: CurrencyApiProfileAction) {
         when (action) {
             CurrencyApiProfileAction.ClosePage -> closePage()
+
             CurrencyApiProfileAction.Save -> save()
+
             is CurrencyApiProfileAction.SelectPreset -> {
                 _state.update {
                     it.copy(

@@ -59,6 +59,7 @@ class ConvertAmountUseCase(
                 }
 
                 RateLookup.Unavailable -> missing += "$fromCode→$toCode"
+
                 RateLookup.Disabled -> disabled = true
             }
         }
@@ -128,5 +129,4 @@ data class ConvertedTotal(
 }
 
 /** Adds totals up; any part that couldn't be produced makes the sum unavailable too. */
-fun Iterable<ConvertedTotal>.sum(): ConvertedTotal =
-    fold(ConvertedTotal(value = 0.0)) { total, next -> total + next }
+fun Iterable<ConvertedTotal>.sum(): ConvertedTotal = fold(ConvertedTotal(value = 0.0)) { total, next -> total + next }

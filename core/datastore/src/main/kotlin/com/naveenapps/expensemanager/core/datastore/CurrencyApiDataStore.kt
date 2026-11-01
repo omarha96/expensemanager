@@ -11,19 +11,18 @@ import kotlinx.coroutines.flow.map
 
 class CurrencyApiDataStore(private val dataStore: DataStore<Preferences>) {
 
-    fun getProfile(): Flow<CurrencyApiProfile?> =
-        dataStore.data.map { preferences ->
-            val presetName = preferences[KEY_PRESET] ?: return@map null
-            val preset = runCatching { CurrencyApiPreset.valueOf(presetName) }
-                .getOrDefault(CurrencyApiPreset.FRANKFURTER)
-            CurrencyApiProfile(
-                preset = preset,
-                baseUrl = preferences[KEY_BASE_URL] ?: preset.defaultBaseUrl,
-                apiKey = preferences[KEY_API_KEY] ?: "",
-            )
-        }
+    fun getProfile(): Flow<CurrencyApiProfile?> = dataStore.data.map { preferences ->
+        val presetName = preferences[KEY_PRESET] ?: return@map null
+        val preset = runCatching { CurrencyApiPreset.valueOf(presetName) }
+            .getOrDefault(CurrencyApiPreset.FRANKFURTER)
+        CurrencyApiProfile(
+            preset = preset,
+            baseUrl = preferences[KEY_BASE_URL] ?: preset.defaultBaseUrl,
+            apiKey = preferences[KEY_API_KEY] ?: "",
+        )
+    }
 
-    suspend fun saveProfile(profile: CurrencyApiProfile): Unit {
+    suspend fun saveProfile(profile: CurrencyApiProfile) {
         dataStore.edit { preferences ->
             preferences[KEY_PRESET] = profile.preset.name
             preferences[KEY_BASE_URL] = profile.baseUrl

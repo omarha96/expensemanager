@@ -11,6 +11,7 @@ import com.naveenapps.expensemanager.core.model.TransactionType
 import com.naveenapps.expensemanager.core.repository.AccountRepository
 import com.naveenapps.expensemanager.core.repository.RecurringTransactionRepository
 import com.naveenapps.expensemanager.core.repository.TransactionRepository
+import com.naveenapps.expensemanager.core.testing.FAKE_ACCOUNT
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.util.Date
@@ -18,7 +19,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
-import com.naveenapps.expensemanager.core.testing.FAKE_ACCOUNT
 import org.junit.Test
 import org.mockito.kotlin.any
 import org.mockito.kotlin.doSuspendableAnswer
