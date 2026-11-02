@@ -10,6 +10,7 @@ import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.Forma
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetFormattedAmountUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertAmountUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.settings.currencyapi.ConvertedTotal
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.AddTransactionUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.DeleteTransactionUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.transaction.GetTransactionWithFilterUseCase
@@ -82,7 +83,7 @@ class TransactionListViewModel(
                 )
                 TransactionGroup(
                     date = it.key,
-                    amountTextColor = (totalAmount.value ?: 0.0).getAmountTextColor(),
+                    amountTextColor = totalAmount.colorSign().getAmountTextColor(),
                     totalAmount = getFormattedAmountUseCase(totalAmount, currency),
                     transactions = it.value.map { transaction ->
                         transaction.toTransactionUIModel(

@@ -6,6 +6,7 @@ import com.naveenapps.expensemanager.core.common.utils.AppCoroutineDispatchers
 import com.naveenapps.expensemanager.core.common.utils.toMonthAndYearKey
 import com.naveenapps.expensemanager.core.common.utils.toYear
 import com.naveenapps.expensemanager.core.domain.usecase.account.GetAllAccountsUseCase
+import com.naveenapps.expensemanager.core.domain.usecase.budget.BudgetUiModel
 import com.naveenapps.expensemanager.core.domain.usecase.budget.GetBudgetsUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.FormatAmountInCurrencyUseCase
 import com.naveenapps.expensemanager.core.domain.usecase.settings.currency.GetCurrencyUseCase
@@ -205,12 +206,16 @@ class DashboardViewModel(
             // year); "View all" still lists every budget.
             val (monthly, yearly) = pickHomeBudgets(allBudgets, activeMonth, currentYear)
             val today = LocalDate.now()
-            val format = { value: Double -> getFormattedAmountUseCase.invoke(value, currency).amountString.orEmpty() }
+
+            // Each budget is in its own currency: format what's left in that, not the app's.
+            fun formatFor(budget: BudgetUiModel) = { value: Double ->
+                getFormattedAmountUseCase.invoke(value, budget.amount.currency ?: currency).amountString.orEmpty()
+            }
             _state.update {
                 it.copy(
                     homeBudgets = HomeBudgets(
-                        monthly = monthly?.toBudgetProgress(today, format),
-                        yearly = yearly?.toBudgetProgress(today, format),
+                        monthly = monthly?.let { it.toBudgetProgress(today, formatFor(it)) },
+                        yearly = yearly?.let { it.toBudgetProgress(today, formatFor(it)) },
                         month = activeMonthDate,
                         year = currentYear,
                     ),

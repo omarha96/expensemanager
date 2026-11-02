@@ -101,6 +101,22 @@ data class ConvertedTotal(
         parts = parts.map { it.copy(amount = it.amount * factor) },
     )
 
+    /**
+     * The sign to colour this total by. With conversion off there is no single value, so it
+     * follows the per-currency parts: negative only if every part is, positive only if every
+     * part is, and like zero when they are mixed.
+     */
+    fun colorSign(): Double {
+        value?.let { return it }
+        val signs = parts.map { it.amount }.filter { it != 0.0 }
+        return when {
+            signs.isEmpty() -> 0.0
+            signs.all { it < 0.0 } -> -1.0
+            signs.all { it > 0.0 } -> 1.0
+            else -> 0.0
+        }
+    }
+
     operator fun plus(other: ConvertedTotal): ConvertedTotal = combine(other, sign = 1.0)
 
     operator fun minus(other: ConvertedTotal): ConvertedTotal = combine(other, sign = -1.0)

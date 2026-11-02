@@ -78,7 +78,7 @@ class AccountListViewModel(
                     assetsAmount = getFormattedAmountUseCase(assets, currency),
                     liabilitiesAmount = getFormattedAmountUseCase(liabilities, currency),
                     totalAmount = getFormattedAmountUseCase(total, currency),
-                    totalAmountTextColor = (total.value ?: 0.0).getAmountTextColor(),
+                    totalAmountTextColor = total.colorSign().getAmountTextColor(),
                     showReOrder = active.size > 1,
                 )
             }

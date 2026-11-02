@@ -126,13 +126,14 @@ class AccountCreateViewModel(
             if (isNewAccount && _state.value.accountCurrency == null && currency.code.isNotBlank()) {
                 _state.update { it.copy(accountCurrency = currency) }
             }
+            // Stored first: getAmountValue takes the symbol position from it.
+            _state.update { it.copy(currency = currency) }
 
             val totalAmount =
                 getTotalAmount(getCreditAmount().toString(), _state.value.amount.value)
 
             _state.update {
                 it.copy(
-                    currency = currency,
                     totalAmount = getAmountValue(totalAmount, currency).amountString
                         ?: "",
                     totalAmountBackgroundColor = getBalanceBackgroundColor(totalAmount),
@@ -154,7 +155,9 @@ class AccountCreateViewModel(
 
         return getFormattedAmountUseCase.invoke(
             amount = amount,
-            currency = selectedCurrency,
+            // The symbol goes where the app's setting puts it, as in every other balance shown;
+            // a currency picked from the country list otherwise defaults to before the number.
+            currency = selectedCurrency.copy(position = _state.value.currency.position),
         )
     }
 
@@ -327,9 +330,12 @@ class AccountCreateViewModel(
                         sessionCreatedImagePaths.remove(customImagePath)
                     }
                     discardSessionImages()
-                    closePage()
+                    // Decided before leaving: popping this screen cancels the ViewModel scope.
+                    // One replace command, as a navigate right after a pop is dropped mid-transition.
                     if (isNewAccount && needsExchangeMethodChoice()) {
-                        composeNavigator.navigate(ExpenseManagerScreens.ExchangeMethodScreen)
+                        composeNavigator.replaceCurrent(ExpenseManagerScreens.ExchangeMethodScreen)
+                    } else {
+                        closePage()
                     }
                 }
             }
