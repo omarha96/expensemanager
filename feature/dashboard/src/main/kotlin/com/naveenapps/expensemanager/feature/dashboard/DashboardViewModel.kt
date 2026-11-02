@@ -181,12 +181,13 @@ class DashboardViewModel(
         }.flowOn(appCoroutineDispatchers.computation)
             .launchIn(viewModelScope)
 
-        getTransactionGroupByCategoryUseCase.invoke(CategoryType.EXPENSE).onEach {
-            val categoryTransaction = it.copy(
-                pieChartData = it.pieChartData.take(4),
-                categoryTransactions = it.categoryTransactions.take(4),
-            )
-            _state.update { it.copy(categoryTransactionState = categoryTransaction) }
+        // Full lists: the categories card shows the top few and groups the rest into one slice.
+        getTransactionGroupByCategoryUseCase.invoke(CategoryType.EXPENSE).onEach { expense ->
+            _state.update { it.copy(categoryTransactionState = expense) }
+        }.launchIn(viewModelScope)
+
+        getTransactionGroupByCategoryUseCase.invoke(CategoryType.INCOME).onEach { income ->
+            _state.update { it.copy(incomeCategoryTransactionState = income) }
         }.launchIn(viewModelScope)
 
         combine(
@@ -202,8 +203,8 @@ class DashboardViewModel(
             }
             val activeMonth = activeMonthDate.toMonthAndYearKey()
             val currentYear = Date().toYear()
-            // Home shows one monthly budget (the month being viewed) and one yearly budget (this
-            // year); "View all" still lists every budget.
+            // Home shows every monthly budget for the month being viewed and every yearly budget
+            // for this year, one card each.
             val (monthly, yearly) = pickHomeBudgets(allBudgets, activeMonth, currentYear)
             val today = LocalDate.now()
 
@@ -214,8 +215,8 @@ class DashboardViewModel(
             _state.update {
                 it.copy(
                     homeBudgets = HomeBudgets(
-                        monthly = monthly?.let { it.toBudgetProgress(today, formatFor(it)) },
-                        yearly = yearly?.let { it.toBudgetProgress(today, formatFor(it)) },
+                        monthly = monthly.mapNotNull { budget -> budget.toBudgetProgress(today, formatFor(budget)) },
+                        yearly = yearly.mapNotNull { budget -> budget.toBudgetProgress(today, formatFor(budget)) },
                         month = activeMonthDate,
                         year = currentYear,
                     ),

@@ -1,4 +1,4 @@
-package com.naveenapps.expensemanager.feature.transaction.list
+package com.naveenapps.expensemanager.core.designsystem.ui.components
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test

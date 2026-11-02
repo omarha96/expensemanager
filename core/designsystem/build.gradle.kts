@@ -12,10 +12,14 @@ android {
 
 dependencies {
     implementation(project(":core:common"))
+    // TransactionItem (shared transaction row) takes Amount and TransactionType.
+    implementation(project(":core:model"))
     api(libs.naveenapps.designsystem)
     api(libs.accompanist.permissions)
     debugApi(libs.androidx.compose.ui.tooling)
     api(libs.mpcharts)
     implementation(libs.coil.compose)
     implementation(libs.androidx.compose.material.iconsExtended)
+
+    testImplementation(project(":core:testing"))
 }

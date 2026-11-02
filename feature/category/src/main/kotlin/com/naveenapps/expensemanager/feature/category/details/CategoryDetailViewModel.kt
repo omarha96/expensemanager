@@ -46,60 +46,59 @@ class CategoryDetailViewModel(
                 findCategoryByIdFlowUseCase.invoke(it),
                 getTransactionWithFilterUseCase.invoke(),
             ) { currency, category, transactions ->
-                if (category != null && transactions?.isNotEmpty() == true) {
-                    val filterTransaction = transactions.filter { transaction ->
-                        transaction.type.ordinal == category.type.ordinal
-                    }
+                if (category == null) {
+                    _state.update { it.copy(categoryTransaction = null, transactions = emptyList()) }
+                    return@combine
+                }
 
-                    val inCategory = filterTransaction.filter { it.categoryId == category.id }
+                // Only the same type counts towards the share: an expense category's share of all
+                // spending, an income category's share of all income, in the selected period.
+                val sameTypeTransactions = transactions.orEmpty().filter { transaction ->
+                    transaction.type.ordinal == category.type.ordinal
+                }
+                val inCategory = sameTypeTransactions.filter { it.categoryId == category.id }
 
-                    // Totals are converted into the display currency before summing; with a
-                    // rate missing they're shown as unavailable, never as a mixed-currency sum.
-                    val totalSpent = convertAmountUseCase.total(
-                        filterTransaction.map { it.amount.amount to it.fromCurrencyCode },
-                        currency.code,
+                // Totals are converted into the display currency before summing; with a
+                // rate missing they're shown as unavailable, never as a mixed-currency sum.
+                val total = convertAmountUseCase.total(
+                    sameTypeTransactions.map { it.amount.amount to it.fromCurrencyCode },
+                    currency.code,
+                )
+                val categoryTotal = convertAmountUseCase.total(
+                    inCategory.map { it.amount.amount to it.fromCurrencyCode },
+                    currency.code,
+                )
+
+                // Each row shows what was recorded, in its own currency.
+                val categoryTransactions = inCategory.map { transaction ->
+                    transaction.toTransactionUIModel(
+                        formatAmountInCurrencyUseCase(
+                            transaction.amount.amount,
+                            transaction.fromCurrencyCode,
+                        ),
                     )
-                    val categoryTotal = convertAmountUseCase.total(
-                        inCategory.map { it.amount.amount to it.fromCurrencyCode },
-                        currency.code,
-                    )
+                }
 
-                    // Each row shows what was recorded, in its own currency.
-                    val categoryTransaction = inCategory.map { transaction ->
-                        transaction.toTransactionUIModel(
-                            formatAmountInCurrencyUseCase(
-                                transaction.amount.amount,
-                                transaction.fromCurrencyCode,
-                            ),
-                        )
-                    }
-
-                    val categoryValue = categoryTotal.value
-                    val totalValue = totalSpent.value
-                    val percent = if (categoryValue != null && totalValue != null && totalValue > 0.0) {
-                        (categoryValue / totalValue).toFloat() * 100
-                    } else {
-                        0f
-                    }
-
-                    _state.update {
-                        it.copy(
-                            categoryTransaction = CategoryTransaction(
-                                category = category,
-                                percent = percent,
-                                amount = getFormattedAmountUseCase(categoryTotal, currency),
-                                transaction = filterTransaction,
-                            ),
-                            transactions = categoryTransaction,
-                        )
-                    }
+                val categoryValue = categoryTotal.value
+                val totalValue = total.value
+                val percent = if (categoryValue != null && totalValue != null && totalValue > 0.0) {
+                    (categoryValue / totalValue).toFloat() * 100
                 } else {
-                    _state.update {
-                        it.copy(
-                            categoryTransaction = null,
-                            transactions = emptyList(),
-                        )
-                    }
+                    0f
+                }
+
+                // The category is shown even with nothing in the period, so the screen keeps its
+                // title, summary and edit button (with a zero total) instead of losing them.
+                _state.update {
+                    it.copy(
+                        categoryTransaction = CategoryTransaction(
+                            category = category,
+                            percent = percent,
+                            amount = getFormattedAmountUseCase(categoryTotal, currency),
+                            transaction = sameTypeTransactions,
+                        ),
+                        transactions = categoryTransactions,
+                    )
                 }
             }.launchIn(viewModelScope)
         }

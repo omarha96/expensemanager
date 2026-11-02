@@ -61,6 +61,7 @@ import com.naveenapps.expensemanager.core.designsystem.theme.ExpenseManagerPrevi
 import com.naveenapps.expensemanager.core.designsystem.ui.components.AppCardView
 import com.naveenapps.expensemanager.core.designsystem.ui.components.AppCardViewDefaults
 import com.naveenapps.expensemanager.core.designsystem.ui.components.ExpenseManagerTopAppBar
+import com.naveenapps.expensemanager.core.designsystem.ui.components.TransactionItem
 import com.naveenapps.expensemanager.core.model.Amount
 import com.naveenapps.expensemanager.core.model.AutoBackupError
 import com.naveenapps.expensemanager.core.model.CategoryTransaction
@@ -72,7 +73,6 @@ import com.naveenapps.expensemanager.feature.account.list.DashBoardAccountItem
 import com.naveenapps.expensemanager.feature.account.list.getRandomAccountUiModel
 import com.naveenapps.expensemanager.feature.category.list.getCategoryData
 import com.naveenapps.expensemanager.feature.filter.FilterView
-import com.naveenapps.expensemanager.feature.transaction.list.TransactionItem
 import com.naveenapps.expensemanager.feature.transaction.list.getTransactionItem
 import kotlin.random.Random
 import org.koin.compose.viewmodel.koinViewModel
@@ -232,19 +232,18 @@ private fun DashboardScreenContent(
         }
 
         item("category_item") {
-            DashboardWidgetTitle(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(start = 16.dp, top = 16.dp),
-                title = stringResource(id = R.string.categories),
-            )
-            AppCardView(
-                modifier = Modifier
-                    .padding(start = 16.dp, end = 16.dp, top = 16.dp),
-            ) {
-                CategoryAmountView(
-                    modifier = Modifier.padding(16.dp),
-                    categoryTransactionState = state.categoryTransactionState,
+            Column {
+                DashboardWidgetTitle(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 16.dp),
+                    title = stringResource(id = R.string.categories),
+                )
+                HomeCategoryCard(
+                    expense = state.categoryTransactionState,
+                    income = state.incomeCategoryTransactionState,
+                    onAddTransaction = { onAction.invoke(DashboardAction.OpenTransactionEdit(null)) },
+                    modifier = Modifier.padding(horizontal = 16.dp),
                 )
             }
         }
@@ -427,7 +426,11 @@ private fun AutoBackupWarningCard(
                     modifier = Modifier.padding(top = 2.dp),
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f).padding(end = 8.dp)) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(end = 8.dp),
+                ) {
                     Text(
                         text = stringResource(id = R.string.auto_backup_warning_title),
                         style = MaterialTheme.typography.titleSmall,
