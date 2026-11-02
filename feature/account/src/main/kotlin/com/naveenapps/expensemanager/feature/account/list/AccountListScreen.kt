@@ -366,7 +366,6 @@ fun DashBoardAccountItem(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .weight(1f, fill = true)
                 .clickable {
                     onItemClick.invoke()
                 }
